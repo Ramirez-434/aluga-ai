@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import AIChatbot from '@/components/AIChatbot'
 import CompareDrawer from '@/components/CompareDrawer'
@@ -14,6 +14,14 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Aluga AI',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#3b82f6',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export default function RootLayout({
