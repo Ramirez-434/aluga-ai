@@ -1,0 +1,43 @@
+{
+  "name": "Aluga AI",
+  "short_name": "Aluga AI",
+  "description": "O portal definitivo de locação de imóveis direcionado por IA em Gurupi e Natividade-TO",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "categories": ["lifestyle", "utilities"],
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Buscar Imóveis",
+      "short_name": "Buscar",
+      "description": "Abrir o mapa de imóveis",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Meu Painel",
+      "short_name": "Painel",
+      "description": "Acessar seu dashboard",
+      "url": "/dashboard/tenant",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

@@ -6,8 +6,21 @@ import CompareModal from '@/components/CompareModal'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'Aluga AI',
-  description: 'O portal definitivo de locação de imóveis direcionado por IA',
+  title: 'Aluga AI — Imóveis em Gurupi e Natividade-TO',
+  description: 'O portal definitivo de locação de imóveis com inteligência artificial em Gurupi e Natividade, Tocantins.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Aluga AI',
+  },
+  themeColor: '#3b82f6',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
 }
 
 export default function RootLayout({
