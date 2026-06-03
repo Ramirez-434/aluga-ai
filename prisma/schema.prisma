@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -18,6 +19,8 @@ model User {
   properties    Property[]
   favorites     Favorite[]
   subscriptions PushSubscription[]
+  chatHistory   ChatHistory[]
+  savedSearches SavedSearch[]
 }
 
 model Property {
@@ -43,10 +46,40 @@ model Property {
   ownerId       String
   owner         User     @relation(fields: [ownerId], references: [id])
   
+  images        PropertyImage[]
+  
+  viewCount     Int      @default(0) // D41/I50: Total de visualizações global
+  isPremium     Boolean  @default(false)
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
   favoritedBy   Favorite[]
+  dailyStats    PropertyDailyStat[]
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  url        String
+  order      Int      @default(0)
+  caption    String?
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId])
+}
+
+model PropertyDailyStat {
+  id         String   @id @default(uuid())
+  propertyId String
+  date       DateTime // O dia exato, para Time-Series
+  views      Int      @default(0)
+  clicks     Int      @default(0) // Cliques no WhatsApp (Leads)
+  
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  @@unique([propertyId, date])
 }
 
 model POI {
@@ -81,4 +114,27 @@ model PushSubscription {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([endpoint])
+}
+
+model ChatHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  role      String   // "user" | "assistant" | "system"
+  content   String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedSearch {
+  id          String   @id @default(uuid())
+  userId      String
+  city        String?
+  minBedrooms Int?
+  maxPrice    Float?
+  petFriendly Boolean?
+  furnished   Boolean?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

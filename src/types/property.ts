@@ -16,7 +16,10 @@ export interface Property {
   neighborhood: string;
   lat: number;
   lng: number;
-  featuredImage: string | null;
+  featuredImage?: string | null;
+  images?: { id: string; url: string; order: number }[];
+  viewCount?: number;
+  isPremium?: boolean;
   ownerId: string;
   createdAt: string;
   updatedAt: string;

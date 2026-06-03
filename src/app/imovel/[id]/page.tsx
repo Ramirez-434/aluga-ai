@@ -1,13 +1,21 @@
 import { notFound } from "next/navigation";
-import { ArrowLeft, Share2, MapPin, Bed, Bath, Maximize, Car, PawPrint, Sofa, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Share2, MapPin, Bed, Bath, Maximize, Car, PawPrint, Sofa, CheckCircle2, ChevronRight, Eye } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import CostCalculator from "@/components/CostCalculator";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import SmartSuggestions from "@/components/SmartSuggestions";
+import AIPropertyAnalysis from "@/components/AIPropertyAnalysis";
+import ShareButton from "@/components/ShareButton";
+import ViewCounter from "@/components/ViewCounter";
+import ImageGalleryCarousel from "@/components/ImageGalleryCarousel";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+
+// G61: ISR — revalidar a cada 5 minutos (atualiza views sem rebuild completo)
+export const revalidate = 300;
+
 
 // JSON-LD Schema Markup for Google Rich Snippets
 function PropertyJsonLd({ property }: { property: any }) {
@@ -62,53 +70,56 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   // Fetch from real database
   const property = await prisma.property.findUnique({ 
     where: { id },
-    include: { owner: true }
+    include: { owner: true, images: { orderBy: { order: 'asc' } } }
   }).catch(() => null);
 
   if (!property) notFound();
 
+  // Extract images array
+  const galleryImages = property.images?.length > 0 
+    ? property.images.map(img => img.url) 
+    : (property.featuredImage ? [property.featuredImage] : []);
+
+
   return (
     <>
       <PropertyJsonLd property={property} />
+      {/* D41: ViewCounter — dispara PATCH silencioso na carga */}
+      <ViewCounter propertyId={property.id} />
       <div className="min-h-screen bg-gray-50 dark:bg-[#060810] pb-24">
 
-        {/* Sticky Header */}
-        <header className="sticky top-0 z-50 bg-white/90 dark:bg-black/80 backdrop-blur-md border-b border-gray-200 dark:border-white/10 px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors font-medium">
-            <ArrowLeft size={20} />
-            <span>Voltar à Busca</span>
+        {/* Sticky Header com Share nativo (D40) e Breadcrumb (D39) */}
+        <header className="sticky top-0 z-50 bg-white/90 dark:bg-black/80 backdrop-blur-md border-b border-gray-200 dark:border-white/10 px-4 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-indigo-500 transition-colors font-medium text-sm">
+            <ArrowLeft size={18} />
+            <span className="hidden sm:block">Busca</span>
           </Link>
+          {/* D39: Breadcrumb */}
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-gray-400">
+            <Link href="/" className="hover:text-indigo-500">Início</Link>
+            <ChevronRight size={11} />
+            <span className="text-gray-500">{property.city}</span>
+            <ChevronRight size={11} />
+            <span className="text-gray-700 dark:text-gray-300 font-semibold truncate max-w-32">{property.title}</span>
+          </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+            <span className="text-xs font-bold px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">
               Disponível
             </span>
-            <button className="p-2 rounded-full bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 transition-colors">
-              <Share2 size={20} className="text-gray-600 dark:text-gray-300" />
-            </button>
+            {/* D40: Share nativo */}
+            <ShareButton title={property.title} />
           </div>
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-          {/* Hero Image */}
-          <div className="relative w-full h-[50vh] rounded-3xl overflow-hidden mb-8 bg-gray-200 dark:bg-white/5 shadow-2xl">
-            <Image
-              src={property.featuredImage ?? "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&auto=format&fit=crop&q=80"}
-              alt={property.title}
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 1280px) 100vw, 1280px"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-            <div className="absolute bottom-6 left-6 right-6">
-              <p className="text-white/70 text-sm font-medium mb-1 flex items-center gap-1">
-                <MapPin size={14} />
-                {property.neighborhood}, {property.city} — TO
-              </p>
-              <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">{property.title}</h1>
-            </div>
-          </div>
+          {/* Hero Image Gallery (F53) */}
+          <ImageGalleryCarousel 
+            images={galleryImages} 
+            title={property.title}
+            neighborhood={property.neighborhood}
+            city={property.city}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
 
@@ -116,14 +127,21 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             <div className="lg:col-span-2 space-y-10">
 
               {/* Price strip */}
-              <div className="flex items-center justify-between p-6 rounded-2xl bg-white dark:bg-[#111] border border-gray-100 dark:border-white/8 shadow-sm">
+              <div className="flex items-center justify-between p-5 rounded-2xl bg-white dark:bg-[#111] border border-gray-100 dark:border-white/8 shadow-sm">
                 <div>
                   <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">Aluguel mensal</p>
-                  <p className="text-4xl font-black text-primary">R$ {property.price.toLocaleString('pt-BR')}</p>
+                  <p className="text-4xl font-black text-indigo-600 dark:text-indigo-400">R$ {property.price.toLocaleString('pt-BR')}</p>
                 </div>
-                <div className="text-right hidden sm:block">
-                  <p className="text-xs text-gray-400 mb-1">IA — Análise de Preço</p>
-                  <span className="px-3 py-1.5 text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                <div className="text-right hidden sm:block space-y-2">
+                  {/* D41: Views visíveis */}
+                  {(property as any).viewCount > 0 && (
+                    <div className="flex items-center gap-1.5 justify-end text-gray-400 text-xs">
+                      <Eye size={13} />
+                      <span className="font-medium">{(property as any).viewCount} visualizações</span>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400">IA — Análise de Preço</p>
+                  <span className="px-3 py-1.5 text-xs font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full">
                     ✅ Preço Justo
                   </span>
                 </div>
@@ -155,32 +173,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
                 </section>
               )}
 
-              {/* AI Vision */}
-              <section>
-                <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                  <span className="bg-gradient-to-r from-blue-500 to-indigo-600 text-transparent bg-clip-text">Visão da IA</span> ✨
-                </h2>
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-100 dark:border-blue-800/20">
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-[15px]">
-                    Este imóvel em <strong>{property.neighborhood}</strong> apresenta excelente custo-benefício para a região de <strong>{property.city}</strong>. 
-                    Com {property.bedrooms} quarto{property.bedrooms > 1 ? 's' : ''} e {property.area}m², está alinhado com o padrão da vizinhança.
-                    {property.petFriendly && " O fato de aceitar pets amplia o público interessado, agregando valor de mercado."}
-                    {property.furnished && " Mobiliado, o imóvel elimina custos iniciais de mudança — ideal para quem busca praticidade."}
-                  </p>
-                  <div className="flex gap-3 mt-4 flex-wrap">
-                    {[
-                      property.petFriendly && "🐾 Pet Friendly",
-                      property.furnished && "🛋️ Mobiliado",
-                      "📍 Localização estratégica",
-                    ].filter(Boolean).map(tag => (
-                      <span key={tag as string} className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-white dark:bg-white/10 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-white/10">
-                        <CheckCircle2 size={11} className="text-green-500" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </section>
+              {/* D35: Análise de IA Real com Gemini */}
+              <AIPropertyAnalysis property={property} />
 
               {/* Neighborhood Map */}
               <section>

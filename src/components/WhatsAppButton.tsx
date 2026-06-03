@@ -1,3 +1,5 @@
+'use client';
+
 import { MessageCircle } from "lucide-react";
 
 interface WhatsAppButtonProps {
@@ -18,11 +20,19 @@ export default function WhatsAppButton({ phoneNumber, propertyTitle, propertyPri
   
   const url = `https://wa.me/${finalPhone}?text=${message}`;
 
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Registra o lead silenciosamente
+    if (propertyId) {
+      fetch(`/api/properties/${propertyId}/click`, { method: 'POST' }).catch(() => {});
+    }
+  };
+
   return (
     <a 
       href={url}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={handleClick}
       className="w-full py-4 rounded-xl flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold transition-colors shadow-lg shadow-green-500/30"
     >
       <MessageCircle size={20} />

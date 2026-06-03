@@ -4,22 +4,14 @@ import { X, SlidersHorizontal, RotateCcw, Check } from 'lucide-react';
 
 const CITIES = ['Todas', 'Gurupi', 'Natividade'];
 
-function ToggleButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function ToggleButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       onClick={onClick}
       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
         active
-          ? 'bg-primary border-primary text-white shadow-md shadow-primary/30'
-          : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary/50'
+          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/30'
+          : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-indigo-300'
       }`}
     >
       {children}
@@ -27,13 +19,7 @@ function ToggleButton({
   );
 }
 
-function BedroomCounter({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-}) {
+function BedroomCounter({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const options = [0, 1, 2, 3, 4];
   return (
     <div className="flex gap-2">
@@ -43,8 +29,8 @@ function BedroomCounter({
           onClick={() => onChange(n)}
           className={`w-11 h-11 rounded-xl text-sm font-bold border transition-all duration-200 ${
             value === n
-              ? 'bg-primary border-primary text-white shadow-md shadow-primary/30'
-              : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary/50'
+              ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/30'
+              : 'border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-indigo-300'
           }`}
         >
           {n === 0 ? 'Todos' : `${n}+`}
@@ -60,32 +46,50 @@ export default function FilterDrawer() {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* H65: Bottom Sheet no mobile, Slide-over no desktop */}
       {isDrawerOpen && (
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[550] md:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[550]"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
-      {/* Drawer */}
+      {/* Mobile: Bottom Sheet | Desktop: Right Panel */}
       <aside
-        className={`fixed top-0 right-0 h-full w-full max-w-sm bg-white dark:bg-[#111] border-l border-gray-200 dark:border-white/10 shadow-2xl z-[560] flex flex-col transition-transform duration-300 ease-in-out ${
-          isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`
+          fixed z-[560] bg-white dark:bg-[#111] flex flex-col
+          shadow-2xl transition-all duration-300 ease-in-out
+          
+          /* Mobile: Bottom Sheet */
+          bottom-0 left-0 right-0 rounded-t-3xl max-h-[90vh]
+          border-t border-gray-200 dark:border-white/10
+          md:bottom-auto md:top-0 md:right-0 md:left-auto
+          md:h-full md:w-80 md:max-h-none md:rounded-none
+          md:border-t-0 md:border-l md:rounded-l-none
+          
+          ${isDrawerOpen
+            ? 'translate-y-0 md:translate-y-0 md:translate-x-0'
+            : 'translate-y-full md:translate-y-0 md:translate-x-full'
+          }
+        `}
       >
+        {/* H65: Handle bar visual para Bottom Sheet no mobile */}
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
+          <div className="w-10 h-1 bg-gray-300 dark:bg-white/20 rounded-full" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-white/8 shrink-0">
           <div className="flex items-center gap-3">
-            <SlidersHorizontal size={20} className="text-primary" />
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Filtros</h2>
+            <SlidersHorizontal size={19} className="text-indigo-500" />
+            <h2 className="text-base font-black text-gray-900 dark:text-white">Filtros</h2>
             {hasActiveFilters && (
-              <span className="px-2 py-0.5 bg-primary text-white text-xs font-bold rounded-full">
-                Ativos
+              <span className="px-2 py-0.5 bg-indigo-600 text-white text-[10px] font-black rounded-full tracking-wide">
+                ATIVO
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {hasActiveFilters && (
               <button
                 onClick={resetFilters}
@@ -97,9 +101,9 @@ export default function FilterDrawer() {
             )}
             <button
               onClick={() => setDrawerOpen(false)}
-              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
             >
-              <X size={20} className="text-gray-500 dark:text-gray-300" />
+              <X size={19} className="text-gray-500" />
             </button>
           </div>
         </div>
@@ -243,10 +247,10 @@ export default function FilterDrawer() {
         </div>
 
         {/* Footer CTA */}
-        <div className="p-5 border-t border-gray-200 dark:border-white/10 shrink-0">
+        <div className="p-5 border-t border-gray-100 dark:border-white/8 shrink-0">
           <button
             onClick={() => setDrawerOpen(false)}
-            className="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/30"
+            className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
           >
             <Check size={18} />
             Aplicar Filtros

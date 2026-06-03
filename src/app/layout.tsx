@@ -33,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         {/* Preconnect for performance, then load Inter from Google Fonts via <link> (bypasses PostCSS) */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />

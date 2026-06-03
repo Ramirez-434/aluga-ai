@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup, useMap, Tooltip, Polygon } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EditControl } from 'react-leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import * as turf from '@turf/turf';
+import { point } from '@turf/turf';
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import L from 'leaflet';
 import { MOCK_POIS, POICategory } from '@/data/mockPOIs';
 import { Property } from '@/types/property';
+import { useTheme } from 'next-themes';
+import { LocateFixed, GraduationCap, Bed, Maximize } from 'lucide-react';
+import { UNIVERSITY_ZONES } from '@/data/universityZones';
 
 // Fix for default marker icons in react-leaflet
 const markerIconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
@@ -29,13 +33,101 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom pulsing blue marker for properties to look premium
-const PremiumIcon = L.divIcon({
-  className: 'custom-premium-marker',
-  html: `<div style="width: 20px; height: 20px; background: #3b82f6; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);"></div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-});
+// Custom price markers
+const createPriceIcon = (price: number, isDark: boolean, isNew: boolean = false, isPremium: boolean = false) => {
+  let formattedPrice;
+  if (price >= 1000000) {
+    formattedPrice = `R$ ${(price / 1000000).toFixed(1)}M`;
+  } else if (price >= 1000) {
+    formattedPrice = `R$ ${(price / 1000).toFixed(1)}k`;
+  } else {
+    formattedPrice = `R$ ${price}`;
+  }
+  
+  let bgColor = isDark ? '#1f2937' : '#ffffff';
+  let textColor = isDark ? '#ffffff' : '#111827';
+  let borderColor = isDark ? '#374151' : '#e5e7eb';
+  let extraHtml = isNew ? '<div style="position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; background-color: #ef4444; border-radius: 50%; border: 2px solid white;"></div>' : '';
+
+  if (isPremium) {
+    bgColor = 'linear-gradient(to right, #fbbf24, #f59e0b)';
+    textColor = '#ffffff';
+    borderColor = '#f59e0b';
+    extraHtml = '<div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 16px;">👑</div>' + extraHtml;
+  }
+  
+  // C32: Pulse ring style se for imóvel novo (<24h)
+  let pulseStyle = isNew ? `box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); animation: pulse-ring 2s infinite;` : `box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);`;
+
+  if (isPremium) {
+    pulseStyle += ` box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5);`;
+  }
+
+  return L.divIcon({
+    className: 'custom-price-marker',
+    html: `<div style="background: ${bgColor}; color: ${textColor}; font-weight: bold; padding: 6px 12px; border-radius: 20px; border: 1px solid ${borderColor}; white-space: nowrap; font-size: 14px; transition: all 0.2s ease-in-out; display: flex; align-items: center; justify-content: center; transform-origin: bottom center; ${pulseStyle}" onmouseover="this.style.transform='scale(1.1)'; this.style.zIndex='1000'; this.style.backgroundColor='#4f46e5'; this.style.color='white';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.backgroundColor=''; this.style.background='${bgColor}'; this.style.color='${textColor}';">
+             ${formattedPrice}
+             ${extraHtml}
+           </div>
+           <style>
+            @keyframes pulse-ring {
+              0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
+              70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
+              100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+            }
+           </style>`,
+    iconSize: [80, 32],
+    iconAnchor: [40, 16],
+  });
+};
+
+// C23: IconCreateFunction para o MarkerClusterGroup calcular o preço médio
+const createClusterCustomIcon = (cluster: any, isDark: boolean) => {
+  const children = cluster.getAllChildMarkers();
+  let totalPrice = 0;
+  children.forEach((marker: any) => {
+    totalPrice += marker.options.price || 0;
+  });
+  const avgPrice = Math.round(totalPrice / children.length);
+
+  let formattedPrice;
+  if (avgPrice >= 1000000) formattedPrice = `R$ ${(avgPrice / 1000000).toFixed(1)}M+`;
+  else if (avgPrice >= 1000) formattedPrice = `R$ ${(avgPrice / 1000).toFixed(1)}k+`;
+  else formattedPrice = `R$ ${avgPrice}+`;
+
+  // Gradiente baseado no preço (mais caro = vermelho, médio = roxo, barato = azul)
+  let bgColorClass = 'bg-blue-600/90';
+  if (avgPrice > 3000) bgColorClass = 'bg-rose-600/90';
+  else if (avgPrice > 1500) bgColorClass = 'bg-purple-600/90';
+
+  return L.divIcon({
+    html: `<div class="${bgColorClass} text-white font-bold px-3 py-1.5 rounded-full shadow-lg border-2 border-white/20 backdrop-blur-md flex items-center justify-center gap-1 text-sm transition-transform hover:scale-110">
+            <span>${formattedPrice}</span>
+            <span class="bg-black/20 px-1.5 rounded-full text-[10px]">${children.length}</span>
+          </div>`,
+    className: 'custom-cluster-icon',
+    iconSize: [80, 32],
+    iconAnchor: [40, 16],
+  });
+};
+
+function LocateControl() {
+  const map = useMap();
+  const handleLocate = () => {
+    map.locate({ setView: false, maxZoom: 16 }).on("locationfound", function (e) {
+      map.flyTo(e.latlng, map.getZoom(), { duration: 1.5 });
+    });
+  };
+  return (
+    <button 
+      onClick={(e) => { e.stopPropagation(); handleLocate(); }} 
+      className="absolute bottom-6 right-4 z-[400] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+      title="Minha Localização"
+    >
+      <LocateFixed className="w-5 h-5" />
+    </button>
+  );
+}
 
 interface MapProps {
   properties: Property[];
@@ -44,15 +136,24 @@ interface MapProps {
 }
 
 export default function MapComponent({ properties, onPropertySelect, onPolygonFilter }: MapProps) {
-  const defaultCenter: [number, number] = [-11.710, -47.724]; // Natividade, TO
+  const defaultCenter: [number, number] = [-11.726, -49.068]; // Gurupi, TO
+
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const isDark = mounted && resolvedTheme === 'dark';
 
   const [activeCategories, setActiveCategories] = useState<POICategory[]>([]);
+  const [showUniversities, setShowUniversities] = useState(true);
 
   const toggleCategory = (cat: POICategory) => {
     setActiveCategories(prev => 
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
   };
+
+  // C30: Rota entre imóvel selecionado e universidade mais próxima
+  const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
 
   const getCategoryColor = (cat: POICategory) => {
     switch (cat) {
@@ -77,8 +178,8 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
     
     // Filter properties inside polygon using turf spatial math
     const insideIds = properties.filter(prop => {
-      const pt = turf.point([prop.lng, prop.lat]);
-      return turf.booleanPointInPolygon(pt, geojson);
+      const pt = point([prop.lng, prop.lat]);
+      return booleanPointInPolygon(pt, geojson);
     }).map(p => p.id);
     
     if (onPolygonFilter) {
@@ -100,11 +201,16 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
       >
-        {/* Premium CartoDB Positron theme for modern look */}
+        {/* Map tiles depending on theme */}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          url={isDark 
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          }
         />
+        
+        <LocateControl />
 
         <FeatureGroup>
           <EditControl
@@ -137,18 +243,56 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
           maxClusterRadius={60}
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
+          iconCreateFunction={(cluster: any) => createClusterCustomIcon(cluster, isDark)}
         >
-          {properties.map(prop => (
+          {properties.map(prop => {
+            const isNew = Date.now() - new Date(prop.createdAt || Date.now()).getTime() < 86400000;
+            return (
             <Marker 
               key={prop.id} 
               position={[prop.lat, prop.lng]} 
-              icon={PremiumIcon}
+              icon={createPriceIcon(prop.price, isDark, isNew, (prop as any).isPremium)}
+              //@ts-ignore
+              price={prop.price} // Passando propriedade customizada para o cluster calcular a média
               eventHandlers={{
                 click: () => {
+                  setSelectedPropId(prop.id);
                   if (onPropertySelect) onPropertySelect(prop.id);
                 }
               }}
             >
+              {/* Hover Preview (Item 3) */}
+              <Tooltip 
+                direction="top" 
+                offset={[0, -20]} 
+                opacity={1}
+                className="custom-hover-tooltip"
+              >
+                <div className="flex w-52 overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 pointer-events-none">
+                  {prop.featuredImage && (
+                    <img 
+                      src={prop.featuredImage} 
+                      alt="" 
+                      className="w-20 h-20 object-cover"
+                    />
+                  )}
+                  <div className="p-2 flex-1 flex flex-col justify-between">
+                    <h4 className="font-bold text-[11px] text-gray-900 dark:text-white line-clamp-1 leading-tight">{prop.title}</h4>
+                    <p className="text-primary font-bold text-sm">R$ {prop.price.toLocaleString('pt-BR')}</p>
+                    <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
+                      <div className="flex items-center gap-1">
+                        <Bed className="w-3 h-3" />
+                        <span>{prop.bedrooms}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Maximize className="w-3 h-3" />
+                        <span>{prop.area}m²</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Tooltip>
+
               <Popup className="premium-popup">
                 <div className="p-1 min-w-[200px]">
                   <img 
@@ -162,7 +306,8 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
                 </div>
               </Popup>
             </Marker>
-          ))}
+            );
+          })}
         </MarkerClusterGroup>
 
         {/* POI Markers */}
@@ -186,6 +331,42 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
             </Popup>
           </CircleMarker>
         ))}
+
+        {/* University Zones (Item 22) */}
+        {showUniversities && UNIVERSITY_ZONES.map(zone => (
+          <Polygon 
+            key={zone.id}
+            positions={zone.polygon}
+            pathOptions={{
+              color: zone.color,
+              fillColor: zone.color,
+              fillOpacity: 0.15,
+              weight: 2,
+              dashArray: '5, 5'
+            }}
+          >
+            <Tooltip direction="center" permanent className="bg-transparent border-0 shadow-none text-xs font-bold" opacity={0.8}>
+              <span style={{ color: zone.color, textShadow: '0px 0px 3px white' }}>{zone.name}</span>
+            </Tooltip>
+          </Polygon>
+        ))}
+
+        {/* C30: Rota do imóvel selecionado para a universidade central (mock UnirG) */}
+        {selectedPropId && (() => {
+          const prop = properties.find(p => p.id === selectedPropId);
+          if (!prop) return null;
+          // Coordenadas centrais aproximadas do Campus I da UnirG
+          const unirgCenter: [number, number] = [-11.728, -49.066]; 
+          return (
+            <Polygon 
+              positions={[[prop.lat, prop.lng], unirgCenter]}
+              pathOptions={{ color: '#4f46e5', weight: 4, dashArray: '10, 10' }}
+            >
+               <Tooltip direction="auto" permanent>Rota mais rápida para Campus</Tooltip>
+            </Polygon>
+          );
+        })()}
+
       </MapContainer>
 
       {/* POI Filter Toggles (Floating UI) */}
@@ -209,8 +390,35 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
               </button>
             );
           })}
+          
+          <div className="w-full h-px bg-gray-200 dark:bg-white/10 my-1"></div>
+          
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowUniversities(!showUniversities); }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              showUniversities 
+                ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm ring-1 ring-blue-500/20' 
+                : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            Polos Universitários
+          </button>
         </div>
       </div>
+      
+      {/* Global styles for custom tooltip to override Leaflet defaults */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-hover-tooltip {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+        }
+        .custom-hover-tooltip::before {
+          display: none !important; /* Hide the default little arrow */
+        }
+      `}} />
     </div>
   );
 }

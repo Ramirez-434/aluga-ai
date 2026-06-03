@@ -2,8 +2,19 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import webpush from "web-push";
+import { waitUntil } from "@vercel/functions";
 
 const prisma = new PrismaClient();
+
+// Configuração do VAPID para disparos do Radar
+if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:contato@alugaai.com.br",
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const propertySchema = z.object({
   title: z.string().min(5, "Título muito curto").max(100, "Título muito longo"),
@@ -21,6 +32,7 @@ const propertySchema = z.object({
   lat: z.preprocess((val) => Number(val), z.number().min(-90).max(90).optional().default(-11.726)),
   lng: z.preprocess((val) => Number(val), z.number().min(-180).max(180).optional().default(-49.068)),
   featuredImage: z.union([z.literal(""), z.string().url("A URL da imagem é inválida")]).optional(),
+  images: z.array(z.string().url()).optional(),
 });
 
 export async function POST(req: Request) {
@@ -59,15 +71,72 @@ export async function POST(req: Request) {
         neighborhood: parsedData.neighborhood,
         lat: parsedData.lat,
         lng: parsedData.lng,
-        featuredImage: parsedData.featuredImage || null,
+        featuredImage: parsedData.featuredImage || (parsedData.images?.[0]) || null,
         ownerId: user.id,
+        images: parsedData.images && parsedData.images.length > 0 ? {
+          create: parsedData.images.map((url, index) => ({
+            url,
+            order: index
+          }))
+        } : undefined,
       },
     });
+
+    // Gatilho Event-Driven para o Modo Radar (Disparo Assíncrono com waitUntil)
+    waitUntil(
+      (async () => {
+        try {
+          const activeRadars = await prisma.savedSearch.findMany({
+            where: {
+              AND: [
+                { OR: [{ city: property.city }, { city: null }] },
+                { OR: [{ maxPrice: { gte: property.price } }, { maxPrice: null }] },
+                { OR: [{ minBedrooms: { lte: property.bedrooms } }, { minBedrooms: null }] },
+                property.petFriendly ? {} : { OR: [{ petFriendly: false }, { petFriendly: null }] },
+                property.furnished ? {} : { OR: [{ furnished: false }, { furnished: null }] }
+              ]
+            },
+            include: { user: { include: { subscriptions: true } } }
+          });
+
+          if (activeRadars.length > 0 && process.env.VAPID_PRIVATE_KEY) {
+            const payload = JSON.stringify({
+              title: "🔔 Radar Aluga AI",
+              body: `Match perfeito! Novo imóvel em ${property.city} por R$ ${property.price.toLocaleString('pt-BR')} acabou de ser publicado.`,
+              icon: "/icons/icon-192.png",
+              badge: "/icons/icon-192.png",
+              data: { url: `/imovel/${property.id}` }
+            });
+
+            const sendPromises: Promise<any>[] = [];
+            
+            for (const radar of activeRadars) {
+              for (const sub of radar.user.subscriptions) {
+                sendPromises.push(
+                  webpush.sendNotification(
+                    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                    payload
+                  ).catch(err => {
+                    if (err.statusCode === 410) {
+                      return prisma.pushSubscription.delete({ where: { endpoint: sub.endpoint } });
+                    }
+                  })
+                );
+              }
+            }
+            await Promise.all(sendPromises);
+            console.log(`[Radar] Push notifications enviadas para ${sendPromises.length} devices.`);
+          }
+        } catch (err) {
+          console.error("[Radar] Erro na varredura de matching:", err);
+        }
+      })()
+    );
 
     return NextResponse.json({ success: true, property });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "Validation failed", details: error.issues }, { status: 400 });
     }
     console.error("Error creating property:", error);
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });

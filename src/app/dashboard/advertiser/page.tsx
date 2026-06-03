@@ -1,95 +1,127 @@
-import { BarChart3, Users, Eye, UploadCloud, MessageSquare } from "lucide-react";
+'use client';
+
+import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+import { Eye, MousePointerClick, Heart, Building, Loader2, TrendingUp } from 'lucide-react';
+import Link from 'next/link';
+
+// DYNAMIC IMPORT para o Recharts (pesado) não travar o bundle principal
+const AnalyticsChart = dynamic(() => import('@/components/AnalyticsChart'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>
+});
 
 export default function AdvertiserDashboard() {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/advertiser/analytics')
+      .then(res => res.json())
+      .then(d => {
+        setData(d);
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setIsLoading(false);
+      });
+  }, []);
+
+  if (isLoading) {
+    return <div className="p-8 flex items-center justify-center h-[60vh]"><Loader2 className="animate-spin text-indigo-500 w-8 h-8" /></div>;
+  }
+
+  if (data?.error) {
+    return <div className="p-8 text-red-500 font-bold">Erro: {data.error}. Certifique-se de estar logado como ADVERTISER ou ADMIN.</div>;
+  }
+
+  const kpis = [
+    { title: "Meus Imóveis", value: data.totalProperties, icon: <Building size={20} className="text-blue-500" />, bg: "bg-blue-50 dark:bg-blue-900/20" },
+    { title: "Visualizações Totais", value: data.totalViews, icon: <Eye size={20} className="text-indigo-500" />, bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+    { title: "Leads (Cliques WhatsApp)", value: data.totalClicks, icon: <MousePointerClick size={20} className="text-emerald-500" />, bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+    { title: "Favoritados", value: data.totalFavorites, icon: <Heart size={20} className="text-rose-500" />, bg: "bg-rose-50 dark:bg-rose-900/20" }
+  ];
+
+  const conversionRate = data.totalViews > 0 ? ((data.totalClicks / data.totalViews) * 100).toFixed(1) : "0.0";
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Painel do Anunciante</h1>
-        <p className="text-gray-500 dark:text-gray-400">Acompanhe a performance dos seus imóveis e leads.</p>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 dark:text-white">Dashboard de Resultados</h1>
+          <p className="text-gray-500 mt-1">Acompanhe a performance dos seus imóveis nos últimos 30 dias.</p>
+        </div>
+        <Link 
+          href="/dashboard/admin/imoveis" 
+          className="bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 px-5 py-2.5 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 hover:border-indigo-500 transition-all flex items-center gap-2 w-fit shadow-sm"
+        >
+          <Building size={16} /> Gerenciar Imóveis
+        </Link>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: "Visualizações", value: "1.248", icon: Eye, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-500/10" },
-          { label: "Leads (WhatsApp)", value: "34", icon: MessageSquare, color: "text-green-500", bg: "bg-green-50 dark:bg-green-500/10" },
-          { label: "Taxa de Conversão", value: "2.7%", icon: BarChart3, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10" },
-        ].map((metric, i) => (
-          <div key={i} className="bg-white dark:bg-[#111] p-6 rounded-2xl border border-gray-100 dark:border-white/5 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">{metric.label}</p>
-              <h3 className="text-3xl font-bold text-gray-900 dark:text-white">{metric.value}</h3>
+      {/* KPI Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {kpis.map((kpi, i) => (
+          <div key={i} className="bg-white dark:bg-[#111] border border-gray-100 dark:border-white/10 rounded-3xl p-6 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div className={`w-12 h-12 rounded-2xl ${kpi.bg} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              {kpi.icon}
             </div>
-            <div className={`p-4 rounded-xl ${metric.bg} ${metric.color}`}>
-              <metric.icon size={28} />
-            </div>
+            <p className="text-gray-500 dark:text-gray-400 font-semibold text-sm mb-1">{kpi.title}</p>
+            <h3 className="text-3xl font-black text-gray-900 dark:text-white">{kpi.value.toLocaleString('pt-BR')}</h3>
+            
+            {/* Efeito decorativo */}
+            <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-gradient-to-br from-white/0 to-gray-50 dark:to-white/5 rounded-full blur-2xl pointer-events-none" />
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* CRM Pipeline */}
-        <div className="xl:col-span-2">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Users size={20} className="text-gray-500" /> Pipeline de Interessados
-          </h2>
-          <div className="bg-white dark:bg-[#111] border border-gray-200 dark:border-white/5 rounded-2xl p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Column 1 */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 min-h-[300px]">
-                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-white/10 pb-2">Novos (2)</h4>
-                <div className="space-y-3">
-                  <div className="bg-white dark:bg-[#1a1a1a] p-3 rounded-lg border border-gray-200 dark:border-white/10 shadow-sm cursor-grab">
-                    <p className="font-bold text-sm dark:text-white">Carlos S.</p>
-                    <p className="text-xs text-gray-500">Centro Histórico • R$ 3.5k</p>
-                  </div>
-                  <div className="bg-white dark:bg-[#1a1a1a] p-3 rounded-lg border border-gray-200 dark:border-white/10 shadow-sm cursor-grab">
-                    <p className="font-bold text-sm dark:text-white">Maria F.</p>
-                    <p className="text-xs text-gray-500">Bela Vista • R$ 1.2k</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Column 2 */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 min-h-[300px]">
-                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-white/10 pb-2">Em Negociação (1)</h4>
-                <div className="space-y-3">
-                  <div className="bg-white dark:bg-[#1a1a1a] p-3 rounded-lg border border-primary dark:border-primary shadow-sm cursor-grab relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
-                    <p className="font-bold text-sm dark:text-white">Roberto A.</p>
-                    <p className="text-xs text-gray-500">Matriz • R$ 2.2k</p>
-                    <span className="mt-2 inline-block px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 text-[10px] font-bold rounded">Proposta Enviada</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Column 3 */}
-              <div className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 min-h-[300px] opacity-60">
-                <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 dark:border-white/10 pb-2">Fechados (0)</h4>
-                <div className="flex items-center justify-center h-full text-xs text-gray-400 text-center font-medium border-2 border-dashed border-gray-200 dark:border-white/10 rounded-lg">
-                  Arraste cards para cá
-                </div>
-              </div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Main Area Chart */}
+        <div className="lg:col-span-2 bg-white dark:bg-[#111] border border-gray-100 dark:border-white/10 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tráfego vs Conversão</h2>
+              <p className="text-sm text-gray-500">Visualizações de página e cliques no WhatsApp</p>
             </div>
+            <div className="flex items-center gap-4 text-xs font-bold">
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-indigo-500" /> Views</div>
+              <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full bg-emerald-500" /> Leads</div>
+            </div>
+          </div>
+          <div className="w-full h-[300px]">
+            <AnalyticsChart data={data.chartData} />
           </div>
         </div>
 
-        {/* Upload Hub */}
-        <div className="xl:col-span-1">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <UploadCloud size={20} className="text-gray-500" /> Novo Imóvel
-          </h2>
-          <div className="bg-white dark:bg-[#111] border-2 border-dashed border-gray-300 dark:border-white/20 hover:border-primary dark:hover:border-primary transition-colors rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer group h-[300px]">
-            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <UploadCloud size={32} />
+        {/* Side Panel: Conversão */}
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-500/20 flex flex-col justify-between relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-md border border-white/20">
+              <TrendingUp size={24} className="text-white" />
             </div>
-            <h4 className="font-bold text-gray-900 dark:text-white mb-2 text-lg">Arraste fotos ou clique</h4>
-            <p className="text-sm text-gray-500">A IA estruturará o anúncio inteiro a partir das fotos. (JPG, PNG)</p>
-            <button className="mt-6 px-6 py-2 bg-gray-900 dark:bg-white text-white dark:text-black font-medium rounded-full hover:scale-105 transition-transform text-sm">
-              Selecionar Arquivos
-            </button>
+            <h2 className="text-lg font-bold text-white/90">Taxa de Conversão Global</h2>
+            <p className="text-white/70 text-sm mt-1 mb-6">Porcentagem de visitantes que clicam para falar no WhatsApp.</p>
+            
+            <div className="flex items-baseline gap-2">
+              <span className="text-6xl font-black">{conversionRate}</span>
+              <span className="text-2xl font-bold text-indigo-200">%</span>
+            </div>
           </div>
+          
+          <div className="relative z-10 mt-8 pt-6 border-t border-white/20">
+            <p className="text-sm text-indigo-100 leading-relaxed font-medium">
+              Dica: Anúncios com galerias completas e descrições claras convertem até <strong className="text-white">3x mais</strong>.
+            </p>
+          </div>
+
+          {/* Efeitos de fundo */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-white opacity-10 blur-3xl rounded-full" />
+          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-black opacity-20 blur-3xl rounded-full" />
         </div>
+
       </div>
     </div>
   );
