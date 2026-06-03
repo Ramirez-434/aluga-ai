@@ -1,16 +1,9 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import AIChatbot from '@/components/AIChatbot'
 import CompareDrawer from '@/components/CompareDrawer'
 import CompareModal from '@/components/CompareModal'
 import { Toaster } from 'sonner'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
 
 export const metadata: Metadata = {
   title: 'Aluga AI — Imóveis em Gurupi e Natividade-TO',
@@ -21,13 +14,6 @@ export const metadata: Metadata = {
     statusBarStyle: 'black-translucent',
     title: 'Aluga AI',
   },
-  themeColor: '#3b82f6',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
 }
 
 export default function RootLayout({
@@ -36,13 +22,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className={inter.variable}>
-      <body className={inter.className}>
+    <html lang="pt-BR">
+      <head>
+        {/* Preconnect for performance, then load Inter from Google Fonts via <link> (bypasses PostCSS) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+        <meta name="theme-color" content="#3b82f6" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+      </head>
+      <body>
         {children}
         <AIChatbot />
         <CompareDrawer />
         <CompareModal />
-        <Toaster 
+        <Toaster
           position="bottom-right"
           richColors
           toastOptions={{
