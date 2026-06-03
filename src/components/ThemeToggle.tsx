@@ -1,25 +1,24 @@
 'use client';
 import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    }
+    setMounted(true);
   }, []);
 
+  if (!mounted) {
+    return <button className="p-2 rounded-full bg-gray-100 dark:bg-white/10 text-transparent flex items-center justify-center w-9 h-9 shadow-inner" aria-label="Toggle theme placeholder"></button>;
+  }
+
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   const toggle = () => {
-    if (isDark) {
-      document.documentElement.classList.remove('dark');
-      setIsDark(false);
-    } else {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    }
+    setTheme(isDark ? 'light' : 'dark');
   };
 
   return (

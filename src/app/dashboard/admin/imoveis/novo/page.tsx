@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Upload, Building, MapPin, DollarSign, Home } from 'lucide-react';
+import { ArrowLeft, Upload, Building, MapPin, DollarSign, Home, Maximize, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -202,9 +202,10 @@ export default function NewPropertyPage() {
             <button 
               type="submit" 
               disabled={isLoading}
-              className="w-full py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl hover:scale-[1.01] transition-all disabled:opacity-70 disabled:scale-100"
+              className="w-full py-4 bg-primary text-white font-bold rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl hover:scale-[1.01] transition-all disabled:opacity-70 disabled:scale-100 flex items-center justify-center gap-2"
             >
-              {isLoading ? 'Cadastrando...' : 'Publicar Imóvel'}
+              {isLoading && <Loader2 className="animate-spin" size={20} />}
+              {isLoading ? 'Cadastrando Imóvel...' : 'Publicar Imóvel'}
             </button>
           </div>
         </form>

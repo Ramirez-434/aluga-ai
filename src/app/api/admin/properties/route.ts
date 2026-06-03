@@ -1,8 +1,27 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { PrismaClient } from "@prisma/client";
+import { z } from "zod";
 
 const prisma = new PrismaClient();
+
+const propertySchema = z.object({
+  title: z.string().min(5, "Título muito curto").max(100, "Título muito longo"),
+  description: z.string().min(10, "Descrição muito curta").max(1000, "Descrição muito longa"),
+  price: z.preprocess((val) => Number(val), z.number().positive("Preço deve ser maior que 0")),
+  area: z.preprocess((val) => Number(val), z.number().positive("Área deve ser maior que 0")),
+  bedrooms: z.preprocess((val) => Number(val), z.number().min(0, "Quartos não pode ser negativo")),
+  bathrooms: z.preprocess((val) => Number(val), z.number().min(1, "Deve ter pelo menos 1 banheiro")),
+  parkingSpots: z.preprocess((val) => Number(val), z.number().min(0, "Vagas não pode ser negativo").optional().default(0)),
+  petFriendly: z.boolean().optional().default(false),
+  furnished: z.boolean().optional().default(false),
+  address: z.string().min(5, "Endereço inválido"),
+  city: z.string().min(2, "Cidade inválida").optional().default("Gurupi"),
+  neighborhood: z.string().min(2, "Bairro inválido"),
+  lat: z.preprocess((val) => Number(val), z.number().min(-90).max(90).optional().default(-11.726)),
+  lng: z.preprocess((val) => Number(val), z.number().min(-180).max(180).optional().default(-49.068)),
+  featuredImage: z.union([z.literal(""), z.string().url("A URL da imagem é inválida")]).optional(),
+});
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -13,37 +32,43 @@ export async function POST(req: Request) {
   const user = await prisma.user.findUnique({ where: { email: session.user.email } });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Uncomment to enforce roles if needed in production
-  // if (user.role !== "ADMIN" && user.role !== "ADVERTISER") {
-  //   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  // }
+  // Enforce RBAC
+  if (user.role !== "ADMIN" && user.role !== "ADVERTISER") {
+    return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+  }
 
   const body = await req.json();
 
   try {
+    // Validate payload with Zod
+    const parsedData = propertySchema.parse(body);
+
     const property = await prisma.property.create({
       data: {
-        title: body.title,
-        description: body.description,
-        price: parseFloat(body.price),
-        area: parseFloat(body.area),
-        bedrooms: parseInt(body.bedrooms),
-        bathrooms: parseInt(body.bathrooms || "1"),
-        parkingSpots: parseInt(body.parkingSpots || "0"),
-        petFriendly: Boolean(body.petFriendly),
-        furnished: Boolean(body.furnished),
-        address: body.address,
-        city: body.city || "Gurupi",
-        neighborhood: body.neighborhood,
-        lat: parseFloat(body.lat || "-11.726"),
-        lng: parseFloat(body.lng || "-49.068"),
-        featuredImage: body.featuredImage || null,
+        title: parsedData.title,
+        description: parsedData.description,
+        price: parsedData.price,
+        area: parsedData.area,
+        bedrooms: parsedData.bedrooms,
+        bathrooms: parsedData.bathrooms,
+        parkingSpots: parsedData.parkingSpots,
+        petFriendly: parsedData.petFriendly,
+        furnished: parsedData.furnished,
+        address: parsedData.address,
+        city: parsedData.city,
+        neighborhood: parsedData.neighborhood,
+        lat: parsedData.lat,
+        lng: parsedData.lng,
+        featuredImage: parsedData.featuredImage || null,
         ownerId: user.id,
       },
     });
 
     return NextResponse.json({ success: true, property });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation failed", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating property:", error);
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });
   }
