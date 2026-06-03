@@ -37,7 +37,6 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
 export default function Home() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [polygonFilteredIds, setPolygonFilteredIds] = useState<string[] | null>(null);
-  const [properties, setProperties] = useState<Property[]>([]);
   const [showMobileMap, setShowMobileMap] = useState(false); // H67
   const { filters, hasActiveFilters, setDrawerOpen, setFilter } = useFilterStore();
 
