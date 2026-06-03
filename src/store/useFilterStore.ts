@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { toast } from 'sonner';
 
 export interface FilterParams {
   minPrice: number;
@@ -45,7 +46,10 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
     set({ filters: newFilters, hasActiveFilters: hasActive });
   },
 
-  resetFilters: () => set({ filters: DEFAULT_FILTERS, hasActiveFilters: false }),
+  resetFilters: () => {
+    set({ filters: DEFAULT_FILTERS, hasActiveFilters: false });
+    toast.success('Filtros limpos', { description: 'Exibindo todos os imóveis.' });
+  },
 
   setDrawerOpen: (open) => set({ isDrawerOpen: open }),
 }));

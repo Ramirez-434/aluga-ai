@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EditControl } from 'react-leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
@@ -131,31 +132,38 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
           />
         </FeatureGroup>
         
-        {properties.map(prop => (
-          <Marker 
-            key={prop.id} 
-            position={[prop.lat, prop.lng]} 
-            icon={PremiumIcon}
-            eventHandlers={{
-              click: () => {
-                if (onPropertySelect) onPropertySelect(prop.id);
-              }
-            }}
-          >
-            <Popup className="premium-popup">
-              <div className="p-1 min-w-[200px]">
-                <img 
-                  src={prop.featuredImage} 
-                  alt={prop.title} 
-                  className="w-full h-32 object-cover rounded-md mb-2"
-                />
-                <h4 className="font-bold text-sm mb-1 line-clamp-1">{prop.title}</h4>
-                <p className="text-primary font-bold">R$ {prop.price.toLocaleString('pt-BR')}</p>
-                <p className="text-xs text-gray-500">{prop.bedrooms} Quartos • {prop.area}m²</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        <MarkerClusterGroup
+          chunkedLoading
+          maxClusterRadius={60}
+          spiderfyOnMaxZoom={true}
+          showCoverageOnHover={false}
+        >
+          {properties.map(prop => (
+            <Marker 
+              key={prop.id} 
+              position={[prop.lat, prop.lng]} 
+              icon={PremiumIcon}
+              eventHandlers={{
+                click: () => {
+                  if (onPropertySelect) onPropertySelect(prop.id);
+                }
+              }}
+            >
+              <Popup className="premium-popup">
+                <div className="p-1 min-w-[200px]">
+                  <img 
+                    src={prop.featuredImage ?? ''} 
+                    alt={prop.title} 
+                    className="w-full h-32 object-cover rounded-md mb-2"
+                  />
+                  <h4 className="font-bold text-sm mb-1 line-clamp-1">{prop.title}</h4>
+                  <p className="text-primary font-bold">R$ {prop.price.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-500">{prop.bedrooms} Quartos • {prop.area}m²</p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MarkerClusterGroup>
 
         {/* POI Markers */}
         {MOCK_POIS.filter(poi => activeCategories.includes(poi.category)).map(poi => (

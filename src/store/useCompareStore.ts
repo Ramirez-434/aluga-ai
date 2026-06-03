@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { toast } from 'sonner';
 import { Property } from '@/data/mockProperties';
 
 interface CompareStore {
@@ -15,15 +16,20 @@ export const useCompareStore = create<CompareStore>((set) => ({
   isModalOpen: false,
   addProperty: (property) => set((state) => {
     if (state.compareList.length >= 3) {
-      alert("Você pode comparar no máximo 3 imóveis ao mesmo tempo.");
+      toast.warning('Limite atingido', { description: 'Você pode comparar no máximo 3 imóveis.' });
       return state;
     }
-    if (state.compareList.some(p => p.id === property.id)) return state;
+    if (state.compareList.some(p => p.id === property.id)) {
+      toast.info('Já adicionado', { description: `${property.title} já está na comparação.` });
+      return state;
+    }
+    toast.success('Adicionado!', { description: `${property.title} foi adicionado ao comparador.` });
     return { compareList: [...state.compareList, property] };
   }),
-  removeProperty: (id) => set((state) => ({
-    compareList: state.compareList.filter((p) => p.id !== id)
-  })),
+  removeProperty: (id) => set((state) => {
+    toast.info('Removido da comparação.');
+    return { compareList: state.compareList.filter((p) => p.id !== id) };
+  }),
   clearCompareList: () => set({ compareList: [] }),
   setModalOpen: (isOpen) => set({ isModalOpen: isOpen }),
 }));

@@ -8,8 +8,10 @@ import ThemeToggle from '@/components/ThemeToggle';
 import PropertySidebar from '@/components/PropertySidebar';
 import { PropertyListSkeleton } from '@/components/PropertySkeleton';
 import FilterDrawer from '@/components/FilterDrawer';
+import { FadeInItem } from '@/components/PageTransition';
 import { Property } from '@/types/property';
 import { useFilterStore } from '@/store/useFilterStore';
+import { toast } from 'sonner';
 
 // Map needs to be client-side only because Leaflet uses window object
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -64,6 +66,16 @@ export default function Home() {
   const propertiesToDisplay = polygonFilteredIds
     ? filteredProperties.filter(p => polygonFilteredIds.includes(p.id))
     : filteredProperties;
+
+  // Toast when polygon filter is applied
+  const handlePolygonFilter = (ids: string[] | null) => {
+    setPolygonFilteredIds(ids);
+    if (ids !== null) {
+      toast.info(`Área selecionada`, { description: `${ids.length} imóve${ids.length === 1 ? 'l' : 'is'} encontrado${ids.length === 1 ? '' : 's'} na área.` });
+    } else {
+      toast.success('Seleção removida', { description: 'Exibindo todos os imóveis no mapa.' });
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white dark:bg-black">
@@ -158,12 +170,13 @@ export default function Home() {
               </div>
             ) : (
               <>
-                {propertiesToDisplay.map(property => (
-                  <PropertyCard 
-                    key={property.id} 
-                    property={property as any}
-                    onClick={() => setSelectedPropertyId(property.id)} 
-                  />
+                {propertiesToDisplay.map((property, index) => (
+                  <FadeInItem key={property.id} index={index}>
+                    <PropertyCard 
+                      property={property as any}
+                      onClick={() => setSelectedPropertyId(property.id)} 
+                    />
+                  </FadeInItem>
                 ))}
                 <div className="text-center py-8">
                   <p className="text-sm text-gray-500">
@@ -179,9 +192,9 @@ export default function Home() {
         {/* Right Panel: Map */}
         <section className="hidden md:block flex-1 h-full relative z-0">
           <MapComponent 
-            properties={properties}
+            properties={filteredProperties}
             onPropertySelect={setSelectedPropertyId} 
-            onPolygonFilter={setPolygonFilteredIds}
+            onPolygonFilter={handlePolygonFilter}
           />
           
           {/* Floating status pill on map */}
