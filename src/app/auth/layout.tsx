@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
+import PageTransition from "@/components/PageTransition";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -19,17 +21,21 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <div className="w-full max-w-sm mx-auto mt-12 lg:mt-0">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </div>
       </div>
 
       {/* Right side: Image branding */}
       <div className="hidden lg:block lg:w-[55%] relative overflow-hidden bg-black">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 to-indigo-900/60 z-10 mix-blend-overlay"></div>
-        <img 
-          src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80&w=2000" 
-          alt="Aluga AI Architecture" 
-          className="absolute inset-0 w-full h-full object-cover opacity-80"
+        <Image
+          src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&q=80&w=2000"
+          alt="Aluga AI Architecture"
+          fill
+          className="object-cover opacity-80"
+          priority
         />
         
         <div className="absolute inset-0 z-20 flex flex-col justify-end p-20 bg-gradient-to-t from-black/90 via-black/40 to-transparent">

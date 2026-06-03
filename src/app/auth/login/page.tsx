@@ -1,6 +1,7 @@
 'use client';
 import Link from "next/link";
 import { ArrowRight, Mail, Lock } from "lucide-react";
+import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
 function SocialButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
@@ -33,6 +34,10 @@ const AppleIcon = () => (
 
 export default function LoginPage() {
   const handleSocial = (provider: string) => {
+    if (provider === 'Google') {
+      signIn('google', { callbackUrl: '/dashboard/tenant' });
+      return;
+    }
     toast.info(`Login com ${provider}`, {
       description: 'Integração OAuth será configurada em produção.'
     });
