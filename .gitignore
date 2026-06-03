@@ -38,6 +38,13 @@ prisma/dev.db
 prisma/dev.db-journal
 prisma/migrations/
 
+# root db file (if generated here)
+dev.db
+dev.db-journal
+
+# build logs
+*.log
+
 # editors
 .vscode/
 .idea/
