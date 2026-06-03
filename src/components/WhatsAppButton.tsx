@@ -3,11 +3,20 @@ import { MessageCircle } from "lucide-react";
 interface WhatsAppButtonProps {
   phoneNumber: string;
   propertyTitle: string;
+  propertyPrice?: number;
+  propertyId?: string;
 }
 
-export default function WhatsAppButton({ phoneNumber, propertyTitle }: WhatsAppButtonProps) {
-  const message = encodeURIComponent(`Olá! Tenho interesse no imóvel "${propertyTitle}" publicado no Aluga AI.`);
-  const url = `https://wa.me/${phoneNumber}?text=${message}`;
+export default function WhatsAppButton({ phoneNumber, propertyTitle, propertyPrice, propertyId }: WhatsAppButtonProps) {
+  const priceStr = propertyPrice ? ` por R$ ${propertyPrice.toLocaleString('pt-BR')}` : '';
+  const linkStr = propertyId ? `\n\nLink: https://aluga-ai.com.br/imovel/${propertyId}` : '';
+  const message = encodeURIComponent(`Olá! Vi o imóvel "${propertyTitle}"${priceStr} no Aluga AI e gostaria de agendar uma visita.${linkStr}`);
+  
+  // Format phone number (remove non-digits)
+  const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const finalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+  
+  const url = `https://wa.me/${finalPhone}?text=${message}`;
 
   return (
     <a 

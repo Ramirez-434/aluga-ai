@@ -60,7 +60,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
 
   // Fetch from real database
-  const property = await prisma.property.findUnique({ where: { id } }).catch(() => null);
+  const property = await prisma.property.findUnique({ 
+    where: { id },
+    include: { owner: true }
+  }).catch(() => null);
 
   if (!property) notFound();
 
@@ -197,7 +200,12 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-5">
                 <CostCalculator property={property as any} />
-                <WhatsAppButton phoneNumber="556399999999" propertyTitle={property.title} />
+                <WhatsAppButton 
+                  phoneNumber={property.owner?.phone || "556399999999"} 
+                  propertyTitle={property.title}
+                  propertyPrice={property.price}
+                  propertyId={property.id}
+                />
                 <button className="w-full py-4 rounded-2xl border-2 border-primary text-primary font-bold hover:bg-primary/5 transition-colors">
                   📅 Agendar Visita
                 </button>
