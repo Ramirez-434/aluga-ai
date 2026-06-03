@@ -1,0 +1,40 @@
+﻿
+> aluga-ai@1.0.0 build
+> next build
+
+Ôû▓ Next.js 16.2.1 (Turbopack)
+
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 2.2s
+  Running TypeScript ...
+  Finished TypeScript in 3.3s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/5) ...
+node.exe : Error occurred prerendering page 
+"/dashboard/tenant". Read more: 
+https://nextjs.org/docs/messages/prerender-error
+No linha:1 caractere:1
++ & "C:\Program Files\nodejs/node.exe" 
+"C:\Users\mrbat\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Erro 
+   r occurred ...prerender-error:String) [], Rem  
+  oteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Error: Event handlers cannot be passed to Client 
+Component props.
+  {onClick: function onClick, className: ..., 
+children: ...}
+            ^^^^^^^^^^^^^^^^
+If you need interactivity, consider converting 
+part of this to a Client Component.
+    at stringify (<anonymous>) {
+  digest: '3662247126'
+}
+Export encountered an error on 
+/dashboard/tenant/page: /dashboard/tenant, 
+exiting the build.
+Ô¿» Next.js build worker exited with code: 1 and 
+signal: null

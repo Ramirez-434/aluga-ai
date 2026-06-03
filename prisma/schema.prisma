@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  role      String     // TENANT, ADVERTISER, ADMIN
+  createdAt DateTime   @default(now())
+  
+  properties Property[]
+}
+
+model Property {
+  id            String   @id @default(uuid())
+  title         String
+  description   String?
+  price         Float
+  area          Float
+  bedrooms      Int
+  bathrooms     Int      @default(1)
+  suites        Int      @default(0)
+  parkingSpots  Int      @default(1)
+  petFriendly   Boolean  @default(false)
+  furnished     Boolean  @default(false)
+  address       String   @default("")
+  city          String   @default("")
+  neighborhood  String   @default("")
+  lat           Float
+  lng           Float
+  featuredImage String?
+  
+  // Relations
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id])
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model POI {
+  id        String   @id @default(uuid())
+  name      String
+  category  String   // ESCOLA, FARMACIA, TURISMO, COMERCIO
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+}
