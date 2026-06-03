@@ -37,7 +37,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           <Scale size={20} />
         </button>
         <div className="absolute bottom-4 left-4 flex gap-2">
-          {property.tags.slice(0, 2).map(tag => (
+          {(property.tags ?? []).slice(0, 2).map(tag => (
             <span key={tag} className="px-3 py-1 text-xs font-medium rounded-full bg-black/60 text-white backdrop-blur-md">
               {tag}
             </span>
@@ -80,7 +80,7 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total cond + IPTU</p>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">R$ {property.condo.toLocaleString('pt-BR')}</p>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">R$ {(property.condo ?? 0).toLocaleString('pt-BR')}</p>
           </div>
         </div>
       </div>
