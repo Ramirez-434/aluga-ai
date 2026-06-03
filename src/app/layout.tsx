@@ -3,6 +3,7 @@ import './globals.css'
 import AIChatbot from '@/components/AIChatbot'
 import CompareDrawer from '@/components/CompareDrawer'
 import CompareModal from '@/components/CompareModal'
+import MobileNav from '@/components/MobileNav'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default function RootLayout({
         <AIChatbot />
         <CompareDrawer />
         <CompareModal />
+        <MobileNav />
         <Toaster
           position="bottom-right"
           richColors

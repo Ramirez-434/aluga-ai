@@ -208,14 +208,6 @@ export default function Home() {
 
       </main>
 
-      {/* Mobile Floating Action Button (Toggle Map/List) */}
-      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-        <button className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-black px-6 py-3 rounded-full shadow-2xl font-medium text-sm">
-          <MapIcon size={18} />
-          <span>Ver Mapa</span>
-        </button>
-      </div>
-
       {/* Filter Drawer */}
       <FilterDrawer />
 
