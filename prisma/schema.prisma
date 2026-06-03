@@ -14,7 +14,9 @@ model User {
   role      String     // TENANT, ADVERTISER, ADMIN
   createdAt DateTime   @default(now())
   
-  properties Property[]
+  properties    Property[]
+  favorites     Favorite[]
+  subscriptions PushSubscription[]
 }
 
 model Property {
@@ -42,6 +44,8 @@ model Property {
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  favoritedBy   Favorite[]
 }
 
 model POI {
@@ -51,4 +55,29 @@ model POI {
   lat       Float
   lng       Float
   createdAt DateTime @default(now())
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  propertyId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property  Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([endpoint])
 }

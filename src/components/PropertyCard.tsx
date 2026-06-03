@@ -5,7 +5,11 @@ import Link from "next/link";
 import { Bed, Bath, Maximize, Heart, MapPin, Scale, PawPrint, Sofa } from "lucide-react";
 import { Property } from "@/data/mockProperties";
 import { useCompareStore } from "@/store/useCompareStore";
+import { useFavoriteStore } from "@/store/useFavoriteStore";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: Property;
@@ -14,8 +18,47 @@ interface PropertyCardProps {
 
 export default function PropertyCard({ property, onClick }: PropertyCardProps) {
   const { addProperty, compareList } = useCompareStore();
+  const { favorites, toggleFavorite } = useFavoriteStore();
+  const { status } = useSession();
+  const router = useRouter();
+
   const isCompared = compareList.some(p => p.id === property.id);
+  const isFavorite = favorites.includes(property.id);
   const [imgError, setImgError] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+
+  const handleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (status !== 'authenticated') {
+      toast.info("Faça login para salvar seus favoritos", {
+        action: { label: "Entrar", onClick: () => router.push('/auth/login') }
+      });
+      return;
+    }
+
+    if (isLiking) return;
+    setIsLiking(true);
+
+    // Optimistic UI update
+    toggleFavorite(property.id);
+
+    try {
+      const method = isFavorite ? 'DELETE' : 'POST';
+      await fetch('/api/favorites', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ propertyId: property.id })
+      });
+      toast.success(isFavorite ? "Removido dos favoritos" : "Salvo nos favoritos");
+    } catch (error) {
+      // Revert optimistic update on error
+      toggleFavorite(property.id);
+      toast.error("Erro ao salvar favorito");
+    } finally {
+      setIsLiking(false);
+    }
+  };
 
   const fallbackImg = `https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=60`;
 
@@ -39,11 +82,16 @@ export default function PropertyCard({ property, onClick }: PropertyCardProps) {
 
         {/* Action buttons */}
         <button
-          onClick={(e) => e.stopPropagation()}
-          className="absolute top-4 right-4 p-2 rounded-full bg-white/15 hover:bg-white/35 backdrop-blur-md border border-white/20 transition-all duration-200 text-white z-10 hover:scale-110"
+          onClick={handleFavorite}
+          disabled={isLiking}
+          className={`absolute top-4 right-4 p-2 rounded-full backdrop-blur-md border transition-all duration-200 z-10 hover:scale-110 ${
+            isFavorite
+              ? 'bg-red-500 border-red-500 text-white shadow-lg shadow-red-500/40'
+              : 'bg-white/15 hover:bg-white/35 border-white/20 text-white'
+          }`}
           aria-label="Favoritar"
         >
-          <Heart size={18} />
+          <Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); addProperty(property); }}

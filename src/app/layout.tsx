@@ -5,6 +5,7 @@ import CompareDrawer from '@/components/CompareDrawer'
 import CompareModal from '@/components/CompareModal'
 import MobileNav from '@/components/MobileNav'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
+import Providers from '@/components/Providers'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
@@ -45,19 +46,21 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </head>
       <body>
-        {children}
-        <AIChatbot />
-        <CompareDrawer />
-        <CompareModal />
-        <MobileNav />
-        <ServiceWorkerRegistrar />
-        <Toaster
-          position="bottom-right"
-          richColors
-          toastOptions={{
-            style: { borderRadius: '14px', fontSize: '14px' }
-          }}
-        />
+        <Providers>
+          {children}
+          <AIChatbot />
+          <CompareDrawer />
+          <CompareModal />
+          <MobileNav />
+          <ServiceWorkerRegistrar />
+          <Toaster
+            position="bottom-right"
+            richColors
+            toastOptions={{
+              style: { borderRadius: '14px', fontSize: '14px' }
+            }}
+          />
+        </Providers>
       </body>
     </html>
   )

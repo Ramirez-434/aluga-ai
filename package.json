@@ -33,6 +33,7 @@
     "react-leaflet-cluster": "^4.1.3",
     "react-leaflet-draw": "^0.21.0",
     "sonner": "^2.0.7",
+    "web-push": "^3.6.7",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -42,6 +43,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/turf": "^3.5.32",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.27",
     "dotenv": "^17.4.2",
     "eslint": "^9.39.4",
