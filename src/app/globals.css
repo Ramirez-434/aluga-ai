@@ -353,3 +353,10 @@ input[type='range']::-webkit-slider-thumb:hover {
 .university-zone-polygon:hover {
   fill-opacity: 0.25 !important;
 }
+
+/* ============================================================
+   MAPA VETORIAL: HACK PARA DARK MODE (SEM API KEY)
+   ============================================================ */
+.dark-map-tiles {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
