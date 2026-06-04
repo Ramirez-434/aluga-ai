@@ -7,7 +7,9 @@ import { Calculator, ShieldCheck } from "lucide-react";
 export default function CostCalculator({ property }: { property: Property }) {
   const [includeInsurance, setIncludeInsurance] = useState(true);
   const insuranceCost = 85; // fixed mock value
-  const total = property.price + property.condo + (includeInsurance ? insuranceCost : 0);
+  const condo = property.condominiumFee || 0;
+  const iptu = property.iptuTax || 0;
+  const total = property.basePrice + condo + iptu + (includeInsurance ? insuranceCost : 0);
 
   return (
     <div className="p-6 rounded-2xl bg-white dark:bg-[#111] border border-gray-100 dark:border-white/5 shadow-xl shadow-gray-200/50 dark:shadow-none">
@@ -19,11 +21,11 @@ export default function CostCalculator({ property }: { property: Property }) {
       <div className="space-y-4">
         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
           <span>Aluguel</span>
-          <span className="font-medium">R$ {property.price.toLocaleString('pt-BR')}</span>
+          <span className="font-medium">R$ {property.basePrice.toLocaleString('pt-BR')}</span>
         </div>
         <div className="flex justify-between items-center text-gray-700 dark:text-gray-300">
           <span>Condomínio + IPTU</span>
-          <span className="font-medium">R$ {property.condo.toLocaleString('pt-BR')}</span>
+          <span className="font-medium">R$ {(condo + iptu).toLocaleString('pt-BR')}</span>
         </div>
         
         <label className="flex items-center justify-between cursor-pointer group">

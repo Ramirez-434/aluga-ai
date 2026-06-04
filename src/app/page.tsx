@@ -56,6 +56,8 @@ export default function Home() {
     if (filters.petFriendly !== null) params.append('petFriendly', filters.petFriendly.toString());
     if (filters.furnished !== null) params.append('furnished', filters.furnished.toString());
     if (filters.city !== null) params.append('city', filters.city);
+    if (filters.propertyCategory) params.append('propertyCategory', filters.propertyCategory);
+    if (filters.transactionType) params.append('transactionType', filters.transactionType);
     params.append('limit', '10');
     if (pageIndex > 0 && previousPageData.nextCursor) {
       params.append('cursor', previousPageData.nextCursor);
@@ -85,6 +87,8 @@ export default function Home() {
     if (filters.petFriendly !== null) params.append('petFriendly', filters.petFriendly.toString());
     if (filters.furnished !== null) params.append('furnished', filters.furnished.toString());
     if (filters.city !== null) params.append('city', filters.city);
+    if (filters.propertyCategory) params.append('propertyCategory', filters.propertyCategory);
+    if (filters.transactionType) params.append('transactionType', filters.transactionType);
     if (debouncedMapBounds) {
       params.append('n', debouncedMapBounds.n.toString());
       params.append('s', debouncedMapBounds.s.toString());

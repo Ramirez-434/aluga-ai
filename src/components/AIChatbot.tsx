@@ -26,7 +26,7 @@ export default function AIChatbot() {
   const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const { setFilter, resetFilters, mapBounds } = useFilterStore();
+  const { setFilter, resetFilters, mapBounds, filters } = useFilterStore();
   const pathname = usePathname();
 
   // Detecta se estamos numa página de imóvel
@@ -65,7 +65,7 @@ export default function AIChatbot() {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || isLoading) return;
-    sendMessage({ text: input }, { body: { propertyId, mapBounds } });
+    sendMessage({ text: input }, { body: { propertyId, mapBounds, propertyCategory: filters.propertyCategory } });
     setInput('');
   };
 
@@ -166,7 +166,7 @@ export default function AIChatbot() {
       if (customEvent.detail?.message) {
         // Envia a mensagem automaticamente após um pequeno delay para a UI abrir
         setTimeout(() => {
-          sendMessage({ text: customEvent.detail.message }, { body: { propertyId, mapBounds } });
+          sendMessage({ text: customEvent.detail.message }, { body: { propertyId, mapBounds, propertyCategory: filters.propertyCategory } });
         }, 500);
       }
     };
@@ -218,7 +218,7 @@ export default function AIChatbot() {
 
   // E44: Enviar sugestão ao clicar no chip
   const handleChipClick = (chip: string) => {
-    sendMessage({ text: chip }, { body: { propertyId, mapBounds } });
+    sendMessage({ text: chip }, { body: { propertyId, mapBounds, propertyCategory: filters.propertyCategory } });
   };
 
   const renderToolInvocation = (toolInvocation: any) => {
@@ -377,7 +377,7 @@ export default function AIChatbot() {
                 ].map(sug => (
                   <button
                     key={sug}
-                    onClick={() => sendMessage({ text: sug }, { body: { propertyId, mapBounds } })}
+                    onClick={() => sendMessage({ text: sug }, { body: { propertyId, mapBounds, propertyCategory: filters.propertyCategory } })}
                     className="text-xs text-left bg-white dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-white/10 hover:border-indigo-400 dark:hover:border-indigo-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-600 dark:text-gray-300 transition-all"
                   >
                     {sug}

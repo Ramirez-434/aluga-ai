@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         title: true,
-        price: true,
+        basePrice: true,
         bedrooms: true,
-        area: true,
+        areaUseful: true,
         address: true,
         featuredImage: true,
         viewCount: true,

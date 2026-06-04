@@ -69,7 +69,7 @@ export async function GET(req: Request) {
     return {
       id: property.id,
       title: property.title,
-      price: property.price,
+      basePrice: property.basePrice,
       city: property.city,
       isPremium: property.isPremium,
       featuredImage: property.images[0]?.url ?? property.featuredImage,

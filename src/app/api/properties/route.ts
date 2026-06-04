@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
                       : searchParams.get('furnished')   === 'false' ? false
                       : undefined;
     const city       = searchParams.get('city')        || undefined;
+    const propertyCategory = searchParams.get('propertyCategory') as any || undefined;
+    const transactionType  = searchParams.get('transactionType') as any || undefined;
     const cursor     = searchParams.get('cursor')      || undefined;
     const limit      = searchParams.get('limit')       ? Number(searchParams.get('limit'))       : 10;
 
@@ -71,11 +73,13 @@ export async function GET(req: NextRequest) {
       where: {
         isActive: true,
         ...boundsWhere, // Geometria injetada
-        ...(minPrice   !== undefined && { price:    { gte: minPrice } }),
-        ...(maxPrice   !== undefined && { price:    { lte: maxPrice } }),
+        ...(minPrice   !== undefined && { basePrice:    { gte: minPrice } }),
+        ...(maxPrice   !== undefined && { basePrice:    { lte: maxPrice } }),
         ...(bedrooms   !== undefined && { bedrooms: { gte: bedrooms } }),
         ...(petFriendly !== undefined && { petFriendly }),
         ...(furnished  !== undefined && { furnished }),
+        ...(propertyCategory !== undefined && { category: propertyCategory }),
+        ...(transactionType !== undefined && { transactionType: { has: transactionType } }),
         ...((!hasBounds && city !== undefined) ? { city } : {}), // City só é aplicado se BBOX não existir
       },
       orderBy: [

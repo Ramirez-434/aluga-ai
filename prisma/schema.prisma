@@ -8,6 +8,33 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Enumerações de Expansão de Escopo
+enum PropertyCategory {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  RURAL
+}
+
+enum TransactionType {
+  RENT
+  SALE
+  SHORT_TERM
+}
+
+enum ConstructionStage {
+  PLAN
+  UNDER_CONSTRUCTION
+  READY
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  RENTED
+  SOLD
+  UNAVAILABLE
+}
+
 model User {
   id            String     @id @default(uuid())
   name          String?
@@ -15,7 +42,7 @@ model User {
   emailVerified DateTime?
   image         String?
   phone         String?
-  role          String     @default("TENANT") // TENANT, ADVERTISER, ADMIN
+  role          String     @default("TENANT") // TENANT, ADVERTISER, ADMIN, BROKER
   createdAt     DateTime   @default(now())
   
   accounts      Account[]
@@ -25,6 +52,7 @@ model User {
   subscriptions PushSubscription[]
   chatHistory   ChatHistory[]
   savedSearches SavedSearch[]
+  broker        Broker?
 }
 
 model Account {
@@ -62,40 +90,111 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+// O Escudo B2B (Agências e Corretores)
+model Agency {
+  id          String     @id @default(cuid())
+  name        String
+  cnpj        String     @unique
+  logoUrl     String?
+  brokers     Broker[]
+  properties  Property[]
+  createdAt   DateTime   @default(now())
+}
+
+model Broker {
+  id          String     @id @default(cuid())
+  userId      String     @unique // Conecta com o seu User do Auth.js
+  agencyId    String?
+  creci       String     @unique
+  phone       String
+  
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency      Agency?    @relation(fields: [agencyId], references: [id])
+  properties  Property[]
+}
+
 model Property {
-  id            String   @id @default(uuid())
-  title         String
-  description   String?
-  price         Float
-  area          Float
-  bedrooms      Int
-  bathrooms     Int      @default(1)
-  suites        Int      @default(0)
-  parkingSpots  Int      @default(1)
-  petFriendly   Boolean  @default(false)
-  furnished     Boolean  @default(false)
-  address       String   @default("")
-  city          String   @default("")
-  neighborhood  String   @default("")
-  lat           Float
-  lng           Float
-  featuredImage String?
+  id                String            @id @default(cuid())
+  title             String
+  description       String            @db.Text
   
-  // Relations
-  ownerId       String
-  owner         User     @relation(fields: [ownerId], references: [id])
+  // Categorização Master
+  category          PropertyCategory  @default(RESIDENTIAL)
+  transactionType   TransactionType[] // Permite que um imóvel seja Venda E Aluguel ao mesmo tempo
+  constructionStage ConstructionStage @default(READY)
+
+  // Precificação Composta (A Morte do Preço Único)
+  basePrice         Float
+  condominiumFee    Float?            @default(0)
+  iptuTax           Float?            @default(0)
   
-  images        PropertyImage[]
+  // Geometria e Estrutura Expansiva
+  areaTotal         Float?
+  areaUseful        Float
+  bedrooms          Int
+  bathrooms         Int      @default(1)
+  suites            Int      @default(0)
   
-  viewCount     Int      @default(0) // D41/I50: Total de visualizações global
-  isPremium     Boolean  @default(false)
-  isActive      Boolean  @default(true) // D4/D41: Soft Delete / Imóvel Alugado
+  // Estacionamento Corporativo/Residencial
+  parkingSpots      Int               @default(0)
+  isCoveredParking  Boolean           @default(false)
   
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  petFriendly       Boolean  @default(false)
+  furnished         Boolean  @default(false)
+
+  // Metadados Geográficos e Zoneamento
+  lat               Float
+  lng               Float
+  address           String   @default("")
+  city              String   @default("")
+  neighborhood      String   @default("")
+  state             String   @default("TO")
+  heavyTraffic      Boolean? @default(false) // Vital para galpões
+  featuredImage     String?
   
-  favoritedBy   Favorite[]
-  dailyStats    PropertyDailyStat[]
+  // Relacionamentos B2B e Regras
+  ownerId           String
+  owner             User     @relation(fields: [ownerId], references: [id])
+  
+  brokerId          String?
+  broker            Broker?  @relation(fields: [brokerId], references: [id])
+  
+  agencyId          String?
+  agency            Agency?  @relation(fields: [agencyId], references: [id])
+  
+  images            PropertyImage[]
+  features          PropertyFeature[]
+  accessibility     Accessibility?
+
+  viewCount         Int      @default(0) // Total de visualizações global
+  isPremium         Boolean  @default(false)
+  isActive          Boolean  @default(true) // Soft Delete / Imóvel Alugado
+  status            PropertyStatus @default(AVAILABLE)
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  favoritedBy       Favorite[]
+  dailyStats        PropertyDailyStat[]
+  waitlist          WaitlistLead[]
+}
+
+// O Sistema de Acessibilidade e Condomínio (Tabelas Auxiliares)
+model Accessibility {
+  id              String   @id @default(cuid())
+  propertyId      String   @unique
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  hasRamp         Boolean  @default(false)
+  hasElevator     Boolean  @default(false)
+  wideDoors       Boolean  @default(false)
+  tactilePaving   Boolean  @default(false)
+}
+
+model PropertyFeature {
+  id          String   @id @default(cuid())
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  featureName String   // Ex: "Piscina", "Portaria 24h", "Doca Trifásica"
 }
 
 model PropertyImage {
@@ -185,4 +284,17 @@ model GeocodingCache {
   lat       Float
   lng       Float
   createdAt DateTime @default(now())
+}
+
+model WaitlistLead {
+  id         String   @id @default(uuid())
+  propertyId String
+  name       String
+  email      String
+  phone      String?
+  createdAt  DateTime @default(now())
+  
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([email, propertyId])
 }

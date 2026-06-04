@@ -56,6 +56,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@types/leaflet": "^1.9.21",
     "@types/leaflet-draw": "^1.0.13",
     "@types/node": "^25.5.0",
@@ -66,8 +67,8 @@
     "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.27",
     "dotenv": "^17.4.2",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "^16.2.1",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^15.5.19",
     "postcss": "^8.5.8",
     "prisma": "^5.0.0",
     "tailwindcss": "^4.2.2",

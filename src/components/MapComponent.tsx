@@ -307,9 +307,9 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
             <Marker 
               key={prop.id} 
               position={[prop.lat, prop.lng]} 
-              icon={createPriceIcon(prop.price, isDark, isNew, (prop as any).isPremium, hoveredPropertyId === prop.id)}
+              icon={createPriceIcon(prop.basePrice, isDark, isNew, (prop as any).isPremium, hoveredPropertyId === prop.id)}
               //@ts-ignore
-              price={prop.price} // Passando propriedade customizada para o cluster calcular a média
+              price={prop.basePrice} // Passando propriedade customizada para o cluster calcular a média
               eventHandlers={{
                 click: () => {
                   setSelectedPropId(prop.id);
@@ -335,7 +335,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
                   )}
                   <div className="p-2 flex-1 flex flex-col justify-between">
                     <h4 className="font-bold text-[11px] text-gray-900 dark:text-white line-clamp-1 leading-tight">{prop.title}</h4>
-                    <p className="text-primary font-bold text-sm">R$ {prop.price.toLocaleString('pt-BR')}</p>
+                    <p className="text-primary font-bold text-sm">R$ {prop.basePrice.toLocaleString('pt-BR')}</p>
                     <div className="flex items-center gap-3 text-[10px] text-gray-500 font-medium">
                       <div className="flex items-center gap-1">
                         <Bed className="w-3 h-3" />
@@ -343,7 +343,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
                       </div>
                       <div className="flex items-center gap-1">
                         <Maximize className="w-3 h-3" />
-                        <span>{prop.area}m²</span>
+                        <span>{prop.areaUseful}m²</span>
                       </div>
                     </div>
                   </div>
@@ -358,8 +358,8 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
                     className="w-full h-32 object-cover rounded-md mb-2"
                   />
                   <h4 className="font-bold text-sm mb-1 line-clamp-1">{prop.title}</h4>
-                  <p className="text-primary font-bold">R$ {prop.price.toLocaleString('pt-BR')}</p>
-                  <p className="text-xs text-gray-500">{prop.bedrooms} Quartos • {prop.area}m²</p>
+                  <p className="text-primary font-bold">R$ {prop.basePrice.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-gray-500">{prop.bedrooms} Quartos • {prop.areaUseful}m²</p>
                 </div>
               </Popup>
             </Marker>

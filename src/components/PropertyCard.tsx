@@ -50,7 +50,7 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
   const [isLiking, setIsLiking] = useState(false);
 
   // B17: abaixo da média (preço justo)
-  const isBelowAverage = avgPrice && property.price < avgPrice * 0.9;
+  const isBelowAverage = avgPrice && property.basePrice < avgPrice * 0.9;
 
   // B14: badge novo
   const propertyIsNew = isNew((property as any).createdAt || new Date());
@@ -110,6 +110,24 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
     <>
       {/* B13: aspect-video + Imagem com shimmer enquanto carrega */}
       <div className="relative aspect-video w-full overflow-hidden bg-gray-200 dark:bg-white/5">
+        
+        {/* CRM: Overlay de Indisponível (RENTED / SOLD) */}
+        {(property as any).status === 'RENTED' && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px]">
+            <div className="bg-red-600 text-white font-black px-4 py-1.5 rounded-full uppercase tracking-widest text-sm shadow-xl shadow-red-500/20 mb-2 border border-red-500/50">
+              ALUGADO
+            </div>
+          </div>
+        )}
+        
+        {(property as any).status === 'SOLD' && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px]">
+            <div className="bg-amber-600 text-white font-black px-4 py-1.5 rounded-full uppercase tracking-widest text-sm shadow-xl shadow-amber-500/20 mb-2 border border-amber-500/50">
+              VENDIDO
+            </div>
+          </div>
+        )}
+
         <Image
           src={!imgError && property.featuredImage ? property.featuredImage : fallbackImg}
           alt={property.title}
@@ -243,7 +261,7 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
             <div className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
               <Maximize size={12} className="text-indigo-600 dark:text-indigo-400" />
             </div>
-            <span className="text-xs font-bold">{property.area}m²</span>
+            <span className="text-xs font-bold">{property.areaUseful}m²</span>
           </div>
 
           {/* B15: views */}
@@ -258,9 +276,9 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
         {/* Price + B17 badge */}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Aluguel</p>
+            <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Custo Total / Mês</p>
             <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none">
-              R$ {property.price.toLocaleString('pt-BR')}
+              R$ {(property.basePrice + (property.condominiumFee ?? 0) + (property.iptuTax ?? 0)).toLocaleString('pt-BR')}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
@@ -268,14 +286,15 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
             {isBelowAverage && (
               <span className="badge-price-good text-[9px]">💰 Abaixo da média</span>
             )}
-            {(property.condo ?? 0) > 0 && (
-              <div className="text-right">
-                <p className="text-[9px] text-gray-400">Cond + IPTU</p>
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-300">
-                  R$ {(property.condo ?? 0).toLocaleString('pt-BR')}
-                </p>
-              </div>
-            )}
+            <div className="text-right">
+              <p className="text-[9px] text-gray-400">Detalhes</p>
+              <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                Aluguel: R$ {property.basePrice.toLocaleString('pt-BR')}
+                {((property.condominiumFee ?? 0) + (property.iptuTax ?? 0)) > 0 && (
+                  <> | Taxas: R$ {((property.condominiumFee ?? 0) + (property.iptuTax ?? 0)).toLocaleString('pt-BR')}</>
+                )}
+              </p>
+            </div>
           </div>
         </div>
       </div>

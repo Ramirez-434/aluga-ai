@@ -3,8 +3,14 @@ export interface Property {
   id: string;
   title: string;
   description: string | null;
-  price: number;
-  area: number;
+  basePrice: number;
+  condominiumFee?: number | null;
+  iptuTax?: number | null;
+  areaUseful: number;
+  areaTotal?: number | null;
+  category: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL' | 'RURAL';
+  transactionType: ('RENT' | 'SALE')[];
+  heavyTraffic?: boolean | null;
   bedrooms: number;
   bathrooms: number;
   suites: number;

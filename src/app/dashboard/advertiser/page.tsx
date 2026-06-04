@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import {
   Eye, MousePointerClick, Heart, Building, Loader2,
   TrendingUp, BarChart2, Crown, MapPin, Trophy,
-  Star, ArrowUpRight, Zap
+  Star, ArrowUpRight, Zap, Users
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,7 +26,7 @@ type Tab = 'overview' | 'properties';
 interface PropertyStat {
   id: string;
   title: string;
-  price: number;
+  basePrice: number;
   city: string;
   isPremium: boolean;
   featuredImage: string | null;
@@ -139,12 +139,20 @@ export default function AdvertiserDashboard() {
             Performance consolidada dos seus anúncios nos últimos 30 dias.
           </p>
         </div>
-        <Link
-          href="/dashboard/admin/imoveis"
-          className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-2 w-fit"
-        >
-          <Building size={16} /> Gerenciar Imóveis
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/advertiser/leads"
+            className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-all flex items-center gap-2"
+          >
+            <Users size={16} /> CRM Leads
+          </Link>
+          <Link
+            href="/dashboard/admin/imoveis"
+            className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:shadow-lg hover:shadow-indigo-500/30 transition-all flex items-center gap-2 w-fit"
+          >
+            <Building size={16} /> Gerenciar Imóveis
+          </Link>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -321,7 +329,7 @@ export default function AdvertiserDashboard() {
                     <MapPin size={11} />
                     <span>{prop.city}</span>
                     <span className="mx-1">·</span>
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">R$ {prop.price.toLocaleString('pt-BR')}/mês</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">R$ {prop.basePrice.toLocaleString('pt-BR')}/mês</span>
                   </div>
                 </div>
 

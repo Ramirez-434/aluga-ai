@@ -57,10 +57,10 @@ export default function CompareModal() {
 
                   <div className="space-y-4">
                     <div className="h-12 flex items-center border-b border-gray-100 dark:border-white/5 text-2xl font-bold text-primary">
-                      R$ {prop.price.toLocaleString('pt-BR')}
+                      R$ {prop.basePrice.toLocaleString('pt-BR')}
                     </div>
                     <div className="h-12 flex items-center border-b border-gray-100 dark:border-white/5 font-semibold text-gray-800 dark:text-gray-200 text-lg">
-                      {prop.area} m²
+                      {prop.areaUseful} m²
                     </div>
                     <div className="h-12 flex items-center border-b border-gray-100 dark:border-white/5 font-semibold text-gray-800 dark:text-gray-200 text-lg">
                       {prop.bedrooms}

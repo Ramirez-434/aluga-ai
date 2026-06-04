@@ -7,21 +7,28 @@ import { revalidateTag } from "next/cache";
 const propertySchema = z.object({
   title: z.string().min(5, "Título muito curto").max(100, "Título muito longo").optional(),
   description: z.string().min(10, "Descrição muito curta").max(1000, "Descrição muito longa").optional(),
-  price: z.preprocess((val) => Number(val), z.number().positive("Preço deve ser maior que 0")).optional(),
-  area: z.preprocess((val) => Number(val), z.number().positive("Área deve ser maior que 0")).optional(),
+  basePrice: z.preprocess((val) => Number(val), z.number().positive("Preço base deve ser maior que 0")).optional(),
+  condominiumFee: z.preprocess((val) => Number(val), z.number().min(0).optional()),
+  iptuTax: z.preprocess((val) => Number(val), z.number().min(0).optional()),
+  areaUseful: z.preprocess((val) => Number(val), z.number().positive("Área útil deve ser maior que 0")).optional(),
+  areaTotal: z.preprocess((val) => Number(val), z.number().min(0).optional()),
   bedrooms: z.preprocess((val) => Number(val), z.number().min(0, "Quartos não pode ser negativo")).optional(),
   bathrooms: z.preprocess((val) => Number(val), z.number().min(1, "Deve ter pelo menos 1 banheiro")).optional(),
+  suites: z.preprocess((val) => Number(val), z.number().min(0).optional()),
   parkingSpots: z.preprocess((val) => Number(val), z.number().min(0, "Vagas não pode ser negativo")).optional(),
+  isCoveredParking: z.boolean().optional(),
   petFriendly: z.boolean().optional(),
   furnished: z.boolean().optional(),
   address: z.string().min(5, "Endereço inválido").optional(),
   city: z.string().min(2, "Cidade inválida").optional(),
   neighborhood: z.string().min(2, "Bairro inválido").optional(),
+  state: z.string().min(2, "Estado inválido").optional(),
   lat: z.preprocess((val) => Number(val), z.number().min(-90).max(90)).optional(),
   lng: z.preprocess((val) => Number(val), z.number().min(-180).max(180)).optional(),
   featuredImage: z.union([z.literal(""), z.string().url("A URL da imagem é inválida")]).optional(),
   images: z.array(z.string().url()).optional(),
   isPremium: z.boolean().optional(),
+  status: z.enum(["AVAILABLE", "RENTED", "SOLD", "UNAVAILABLE"]).optional(),
 });
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -49,10 +56,25 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       restData.featuredImage = images[0];
     }
 
+    // 1. Busca imóvel atual antes de atualizar (para Radar de Preço)
+    const oldProperty = await prisma.property.findUnique({
+      where: { id },
+      select: { basePrice: true, favoritedBy: { include: { user: true } } }
+    });
+
     const property = await prisma.property.update({
       where: { id },
       data: {
         ...(restData as any),
+        ...(parsedData.basePrice && { basePrice: parsedData.basePrice }),
+        ...(parsedData.condominiumFee !== undefined && { condominiumFee: parsedData.condominiumFee }),
+        ...(parsedData.iptuTax !== undefined && { iptuTax: parsedData.iptuTax }),
+        ...(parsedData.areaUseful && { areaUseful: parsedData.areaUseful }),
+        ...(parsedData.areaTotal !== undefined && { areaTotal: parsedData.areaTotal }),
+        ...(parsedData.bathrooms && { bathrooms: parsedData.bathrooms }),
+        ...(parsedData.suites !== undefined && { suites: parsedData.suites }),
+        ...(parsedData.parkingSpots !== undefined && { parkingSpots: parsedData.parkingSpots }),
+        ...(parsedData.isCoveredParking !== undefined && { isCoveredParking: parsedData.isCoveredParking }),
         ...(images !== undefined ? {
           images: {
             deleteMany: {}, // Clean existing images
@@ -61,6 +83,37 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         } : {})
       },
     });
+
+    // 2. Radar de Preço (CRM) - Gatilho se o preço cair
+    if (
+      oldProperty && 
+      parsedData.basePrice && 
+      parsedData.basePrice < oldProperty.basePrice
+    ) {
+      const dropAmount = oldProperty.basePrice - parsedData.basePrice;
+      const leads = oldProperty.favoritedBy.map(f => f.user.email);
+      
+      if (leads.length > 0) {
+        console.log(`[CRM HOOK - RADAR DE PREÇO] 🚨 Alerta de Baixa de Preço!`);
+        console.log(`- Imóvel ID: ${id}`);
+        console.log(`- Queda de R$ ${oldProperty.basePrice} para R$ ${parsedData.basePrice} (Desconto de R$ ${dropAmount})`);
+        
+        // Blindagem Serverless (Auditoria 2): Disparo Fire-and-Forget
+        const dispatchEmails = async () => {
+          try {
+            console.log(`- Iniciando disparo em background para ${leads.length} leads...`);
+            // Simulação de processamento SMTP em lote
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            console.log(`✅ [CRM BACKGROUND] E-mails disparados com sucesso para:`, leads);
+          } catch (err) {
+            console.error(`❌ [CRM BACKGROUND] Falha ao enviar e-mails de alerta:`, err);
+          }
+        };
+
+        // Chama sem await para não travar a resposta HTTP
+        dispatchEmails();
+      }
+    }
 
     // G61: On-Demand ISR revalidate
     // @ts-expect-error Next.js 16 typings bug

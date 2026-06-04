@@ -11,7 +11,7 @@ import { prisma } from '@/utils/prisma';
 const model = google('gemini-2.5-flash');
 
 export async function POST(req: NextRequest) {
-  const { messages, propertyId, mapBounds } = await req.json();
+  const { messages, propertyId, mapBounds, propertyCategory } = await req.json();
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return new Response(JSON.stringify({ error: 'Missing GOOGLE_GENERATIVE_AI_API_KEY in .env' }), { status: 500 });
@@ -41,21 +41,30 @@ export async function POST(req: NextRequest) {
   }
 
   let finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content || '' }));
-  let systemInstruction = `Você é o Aluga AI, o Corretor de Imóveis Virtual de elite focado em locação em Gurupi e Natividade (Tocantins).
+  let systemInstruction = `Você é o Aluga AI, o Corretor de Imóveis Virtual de elite focado no mercado do Tocantins (Gurupi, Natividade, etc).
 
-CONTEXTO GEOGRÁFICO E DISTÂNCIAS (ÍMÃS DE DEMANDA):
-- A Engine Espacial do Frontend agora calcula automaticamente a distância linear (usando Turf.js) de todos os imóveis para a Universidade mais próxima e injeta um Micro-Badge no card (ex: "📍 A 1.2km do Campus UnirG").
-- Gurupi: A UnirG fica na Região Central / Setor Sul (bairro mais caro, agitado, onde a proximidade a pé vale ouro). A UFT fica no Vetor Sul (Setor Nova Fronteira, mais residencial).
-- Natividade: Polo da Unitins. O foco nos arredores da Unitins são kitnets estudantis econômicas.
-- Use isso como argumento de venda: Se um imóvel é muito perto do campus, destaque a economia de tempo. Se é mais distante, destaque a tranquilidade ou o preço melhor.
+MODO DE OPERAÇÃO ATUAL: ${propertyCategory === 'COMMERCIAL' ? 'B2B / COMERCIAL' : 'B2C / RESIDENTIAL'}
+
+${propertyCategory === 'COMMERCIAL' 
+  ? `CONTEXTO CORPORATIVO E LOGÍSTICO (B2B):
+- O foco absoluto é ROI (Retorno sobre Investimento), Custo Total de Ocupação e Logística.
+- A engine espacial avalia a proximidade com vias de tráfego pesado (heavyTraffic).
+- Se o usuário busca galpões, armazéns ou pontos comerciais, destaque a facilidade de carga/descarga e o fluxo de pessoas na região.
+- Seja objetivo e focado em negócios.` 
+  : `CONTEXTO GEOGRÁFICO E DISTÂNCIAS (ÍMÃS DE DEMANDA RESIDENCIAL):
+- A Engine Espacial do Frontend agora calcula automaticamente a distância linear (usando Turf.js) de todos os imóveis para a Universidade mais próxima ou POIs vitais (hospitais, mercados).
+- Gurupi: A UnirG fica na Região Central / Setor Sul (bairro mais caro, agitado). A UFT fica no Vetor Sul (Setor Nova Fronteira, mais residencial).
+- Natividade: Polo da Unitins. Foco em repúblicas, kitnets e famílias.
+- Use isso como argumento de venda: Se é perto do campus, destaque a economia de tempo. Se é mais distante, destaque a tranquilidade ou preço.`}
 
 COMO NEGOCIAR E LIDAR COM OBJEÇÕES (MODO CORRETOR EXPERIENTE):
-- Se o usuário achar um imóvel caro (ex: kitnet de R$ 850 na UnirG), aja como corretor: "Sim, é um pouco acima da média, mas a economia de combustível, tempo de deslocamento e segurança por morar do lado da faculdade compensam demais em poucos meses!"
-- Faça perguntas instigantes para fechar negócio: "Você prefere tranquilidade para estudar (UFT/Nova Fronteira) ou estar perto de tudo (Centro/UnirG)?"
+- Justifique preços acima da média utilizando os dados contextuais (ex: se for comercial, fluxo de clientes; se for residencial, economia de combustível/perto do campus).
+- Faça perguntas instigantes para fechar negócio.
 
 REGRAS DE BUSCA E FERRAMENTAS:
-Sempre que o usuário demonstrar intenção de busca (ex: "quero ap de 2 quartos", "tem algo pet friendly?"), VOCÊ DEVE invocar a ferramenta searchProperties com os filtros. 
-Após a ferramenta retornar resultados, NÃO liste ou repita os detalhes do imóvel em texto longo. A interface já criará os cards lindamente. Diga apenas algo como: "Encontrei estas excelentes opções que encaixam no seu perfil!"`;
+Sempre que o usuário demonstrar intenção de busca, VOCÊ DEVE invocar a ferramenta searchProperties com os filtros. 
+Para buscas contextuais de proximidade no mapa (vias pesadas, universidades), use searchSpatialPriority.
+Após a ferramenta retornar resultados, NÃO liste os detalhes em texto longo. A interface já criará os cards lindamente. Diga apenas algo como: "Encontrei estas excelentes opções que encaixam no seu perfil!"`;
 
   // E: Visão Espacial (BBOX)
   if (mapBounds) {
@@ -78,7 +87,7 @@ Se o usuário perguntar "O que tem nesta região?", "O que tem por aqui?" ou per
         : (property.featuredImage ? [property.featuredImage] : []);
       
       systemInstruction += `\n\n[SUMARIZAÇÃO VISUAL MULTIMODAL ATIVADA]
-O usuário está visualizando a página do imóvel "${property.title}" (R$ ${property.price}, ${property.bedrooms} quartos). As imagens deste imóvel foram anexadas à visão do sistema.
+O usuário está visualizando a página do imóvel "${property.title}" (R$ ${property.basePrice}, ${property.bedrooms} quartos). As imagens deste imóvel foram anexadas à visão do sistema.
 Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conservação, iluminação, qualidade dos pisos (ex: porcelanato, cerâmica), bancadas (ex: granito, mármore) e armários, baseando-se ESTRITAMENTE no que as imagens mostram. NÃO minta e NÃO invente características que você não possa ver claramente. Se não tiver certeza, diga que pelas fotos não é possível afirmar.`;
 
       const lastUserMessageIndex = finalMessages.map((m: any) => m.role).lastIndexOf('user');
@@ -138,9 +147,10 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
           if (city) whereClause.city = { contains: city };
           if (neighborhood) whereClause.neighborhood = { contains: neighborhood };
           if (minBedrooms !== undefined) whereClause.bedrooms = { gte: minBedrooms };
-          if (maxPrice !== undefined) whereClause.price = { lte: maxPrice };
+          if (maxPrice !== undefined) whereClause.basePrice = { lte: maxPrice };
           if (petFriendly) whereClause.petFriendly = true;
           if (furnished) whereClause.furnished = true;
+          if (propertyCategory) whereClause.category = propertyCategory;
 
           const properties = await prisma.property.findMany({
             where: whereClause,
@@ -153,50 +163,72 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
             properties: properties.map(p => ({
               id: p.id,
               title: p.title,
-              price: p.price,
+              price: p.basePrice,
               bedrooms: p.bedrooms,
-              area: p.area,
+              area: p.areaUseful,
               neighborhood: p.neighborhood,
               featuredImage: p.featuredImage
             }))
           };
         },
       }),
-      searchPropertiesNearCampus: tool({
-        description: 'Busca imóveis localizados fisicamente próximos a uma Universidade usando cálculo geodésico (Haversine)',
+      searchSpatialPriority: tool({
+        description: 'Busca imóveis no banco usando inteligência espacial pura. Se estiver no modo COMERCIAL, foca em vias de tráfego pesado (heavyTraffic = true). Se no modo RESIDENCIAL, calcula a proximidade geodésica (Haversine) com um Campus Universitário ou Centro de Saúde.',
         parameters: z.object({
-          campusName: z.enum(['Campus UnirG', 'Campus UFT - Gurupi', 'Polo UNITINS']).describe('Nome exato do campus'),
-          maxDistanceKm: z.number().optional().default(3).describe('Raio máximo de distância em km'),
+          targetType: z.enum(['UNIVERSITY', 'HOSPITAL', 'HEAVY_TRAFFIC']).describe('O alvo espacial da busca. HEAVY_TRAFFIC (padrão comercial), UNIVERSITY/HOSPITAL (padrão residencial).'),
+          poiName: z.string().optional().describe('Se for UNIVERSITY ou HOSPITAL, o nome do local (ex: "Campus UnirG", "Hospital Regional"). Ignorado se for HEAVY_TRAFFIC.'),
+          maxDistanceKm: z.number().optional().default(3).describe('Raio máximo de busca (em km) para pontos de interesse.')
         }),
         // @ts-ignore
-        execute: async ({ campusName, maxDistanceKm }: { campusName: string; maxDistanceKm: number }) => {
-          const campus = MOCK_POIS.find(p => p.name === campusName);
-          if (!campus) return { error: 'Campus não encontrado' };
-          
+        execute: async ({ targetType, poiName, maxDistanceKm }: { targetType: string; poiName?: string; maxDistanceKm: number }) => {
           try {
-            // Utilizamos queryRaw para executar a matemática espacial diretamente no banco Postgres
-            const properties = await prisma.$queryRaw<any[]>`
-              SELECT id, title, price, bedrooms, address, city,
-              (6371 * acos(cos(radians(${campus.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${campus.lng})) + sin(radians(${campus.lat})) * sin(radians(lat)))) AS distance
-              FROM "Property"
-              WHERE "isActive" = true
-              AND (6371 * acos(cos(radians(${campus.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${campus.lng})) + sin(radians(${campus.lat})) * sin(radians(lat)))) < ${maxDistanceKm}
-              ORDER BY distance ASC
-              LIMIT 3;
-            `;
-            
-            return properties.map(p => ({
-              id: p.id,
-              title: p.title,
-              price: p.price,
-              bedrooms: p.bedrooms,
-              address: p.address,
-              distanceKm: Number(p.distance).toFixed(1),
-              url: `/property/${p.id}`
-            }));
+            if (targetType === 'HEAVY_TRAFFIC') {
+              const properties = await prisma.property.findMany({
+                where: {
+                  isActive: true,
+                  category: 'COMMERCIAL',
+                  heavyTraffic: true,
+                },
+                take: 3,
+                orderBy: { basePrice: 'desc' }
+              });
+              
+              return properties.map(p => ({
+                id: p.id,
+                title: p.title,
+                price: p.basePrice,
+                city: p.city,
+                advantage: 'Localizado em via de fluxo intenso/pesado (Alta Exposição ou Logística)'
+              }));
+            } else {
+              // Haversine Search para Universidades e Hospitais
+              const poi = MOCK_POIS.find(p => p.name === poiName || (poiName && p.name.includes(poiName)));
+              if (!poi) return { error: 'Ponto de interesse (POI) não encontrado no banco de coordenadas.' };
+              
+              const properties = await prisma.$queryRaw<any[]>`
+                SELECT id, title, "basePrice", bedrooms, address, city, category,
+                (6371 * acos(cos(radians(${poi.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${poi.lng})) + sin(radians(${poi.lat})) * sin(radians(lat)))) AS distance
+                FROM "Property"
+                WHERE "isActive" = true
+                AND category = 'RESIDENTIAL'
+                AND (6371 * acos(cos(radians(${poi.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${poi.lng})) + sin(radians(${poi.lat})) * sin(radians(lat)))) < ${maxDistanceKm}
+                ORDER BY distance ASC
+                LIMIT 3;
+              `;
+              
+              return properties.map(p => ({
+                id: p.id,
+                title: p.title,
+                price: p.basePrice,
+                bedrooms: p.bedrooms,
+                address: p.address,
+                distanceKm: Number(p.distance).toFixed(1),
+                poiReference: poi.name
+              }));
+            }
           } catch (e) {
-            console.error('Erro na busca geoespacial', e);
-            return { error: 'Ocorreu um erro no motor geográfico.' };
+            console.error('Erro na busca espacial RAG', e);
+            return { error: 'Ocorreu um erro na engine espacial.' };
           }
         }
       }),
@@ -219,7 +251,7 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
                 lat: { lte: mapBounds.n, gte: mapBounds.s },
                 lng: { lte: mapBounds.e, gte: mapBounds.w },
               },
-              _avg: { price: true },
+              _avg: { basePrice: true },
               _count: { id: true }
             });
             
@@ -231,12 +263,12 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
                 lng: { lte: mapBounds.e, gte: mapBounds.w },
               },
               take: 5,
-              select: { title: true, price: true, city: true, neighborhood: true }
+              select: { title: true, basePrice: true, city: true, neighborhood: true }
             });
             
             return {
-              totalProperties: stats._count.id,
-              averagePrice: stats._avg.price ? Math.round(stats._avg.price) : 0,
+              totalProperties: stats._count?.id || 0,
+              averagePrice: stats._avg?.basePrice ? Math.round(stats._avg.basePrice) : 0,
               topProperties
             };
           } catch (e) {
@@ -260,8 +292,8 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
           const property = await prisma.property.findUnique({
             where: { id: targetId },
             select: {
-              title: true, price: true, description: true, petFriendly: true, furnished: true,
-              bathrooms: true, bedrooms: true, area: true, parkingSpots: true, city: true, neighborhood: true
+              title: true, basePrice: true, description: true, petFriendly: true, furnished: true,
+              bathrooms: true, bedrooms: true, areaUseful: true, parkingSpots: true, city: true, neighborhood: true
             }
           });
           

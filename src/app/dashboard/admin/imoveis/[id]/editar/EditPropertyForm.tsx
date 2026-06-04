@@ -184,14 +184,14 @@ export default function EditPropertyForm({ property }: { property: any }) {
                 <div>
                   <label className="block text-sm font-semibold mb-2 flex items-center gap-1"><DollarSign size={16}/> Valor Mensal (R$)</label>
                   <input 
-                    required name="price" type="number" step="0.01" defaultValue={property.price}
+                    required name="basePrice" type="number" step="0.01" defaultValue={property.basePrice}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-indigo-600 outline-none transition-all"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 flex items-center gap-1"><Maximize size={16}/> Área Útil (m²)</label>
                   <input 
-                    required name="area" type="number" defaultValue={property.area}
+                    required name="areaUseful" type="number" defaultValue={property.areaUseful}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 focus:ring-2 focus:ring-indigo-600 outline-none transition-all"
                   />
                 </div>

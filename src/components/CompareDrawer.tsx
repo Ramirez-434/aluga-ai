@@ -21,7 +21,7 @@ export default function CompareDrawer() {
                 <img src={prop.featuredImage} alt={prop.title} className="w-12 h-12 object-cover rounded-lg" />
                 <div className="w-32">
                   <p className="text-[11px] font-bold truncate dark:text-white text-gray-900">{prop.title}</p>
-                  <p className="text-xs text-primary font-semibold truncate mt-0.5">R$ {prop.price.toLocaleString('pt-BR')}</p>
+                  <p className="text-xs text-primary font-semibold truncate mt-0.5">R$ {prop.basePrice.toLocaleString('pt-BR')}</p>
                 </div>
                 <button onClick={() => removeProperty(prop.id)} className="p-1 text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10 rounded-md hover:text-red-500 transition-colors">
                   <X size={14} />

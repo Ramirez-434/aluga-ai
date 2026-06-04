@@ -142,7 +142,7 @@ export default function AdminPropertiesManager() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-black text-indigo-600 dark:text-indigo-400 text-base">
-                      R$ {prop.price.toLocaleString('pt-BR')}
+                      R$ {prop.basePrice.toLocaleString('pt-BR')}
                     </span>
                   </td>
                   <td className="px-6 py-4">

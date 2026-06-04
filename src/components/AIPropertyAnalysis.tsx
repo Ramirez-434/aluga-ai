@@ -9,9 +9,9 @@ interface AIPropertyAnalysisProps {
     title: string;
     city: string;
     neighborhood: string;
-    price: number;
+    basePrice: number;
     bedrooms: number;
-    area: number;
+    areaUseful: number;
     petFriendly?: boolean;
     furnished?: boolean;
     description?: string | null;
@@ -33,9 +33,9 @@ Seja direto, concreto e use linguagem de um especialista local. Não use listas 
 Imóvel:
 - Título: ${property.title}
 - Cidade: ${property.city}, ${property.neighborhood}
-- Aluguel: R$ ${property.price.toLocaleString('pt-BR')}/mês
+- Aluguel: R$ ${property.basePrice.toLocaleString('pt-BR')}/mês
 - Quartos: ${property.bedrooms}
-- Área: ${property.area}m²
+- Área: ${property.areaUseful}m²
 - Aceita pets: ${property.petFriendly ? 'Sim' : 'Não'}
 - Mobiliado: ${property.furnished ? 'Sim' : 'Não'}
 ${property.description ? `- Descrição: ${property.description}` : ''}`;
@@ -77,7 +77,7 @@ ${property.description ? `- Descrição: ${property.description}` : ''}`;
         // Fallback para análise local se a API falhar
         setAnalysis(
           `Este imóvel em ${property.neighborhood} apresenta excelente custo-benefício para a região de ${property.city}. ` +
-          `Com ${property.bedrooms} quarto${property.bedrooms > 1 ? 's' : ''} e ${property.area}m², ` +
+          `Com ${property.bedrooms} quarto${property.bedrooms > 1 ? 's' : ''} e ${property.areaUseful}m², ` +
           `está alinhado com o padrão da vizinhança.` +
           (property.petFriendly ? ' O fato de aceitar pets amplia o público interessado, agregando valor de mercado.' : '') +
           (property.furnished ? ' Mobiliado, o imóvel elimina custos iniciais de mudança — ideal para quem busca praticidade.' : '')

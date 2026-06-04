@@ -27,6 +27,10 @@ export async function GET(req: NextRequest) {
                       : undefined;
     const city       = searchParams.get('city')        || undefined;
     
+    // B2B Filters
+    const propertyCategory = searchParams.get('propertyCategory') as any || undefined;
+    const transactionType  = searchParams.get('transactionType') as any || undefined;
+    
     // BBOX Coordinates
     const n = searchParams.get('n') ? Number(searchParams.get('n')) : undefined;
     const s = searchParams.get('s') ? Number(searchParams.get('s')) : undefined;
@@ -53,23 +57,25 @@ export async function GET(req: NextRequest) {
       where: {
         isActive: true,
         ...boundsWhere,
-        ...(minPrice   !== undefined && { price:    { gte: minPrice } }),
-        ...(maxPrice   !== undefined && { price:    { lte: maxPrice } }),
+        ...(minPrice   !== undefined && { basePrice:    { gte: minPrice } }),
+        ...(maxPrice   !== undefined && { basePrice:    { lte: maxPrice } }),
         ...(bedrooms   !== undefined && { bedrooms: { gte: bedrooms } }),
         ...(petFriendly !== undefined && { petFriendly }),
         ...(furnished  !== undefined && { furnished }),
+        ...(propertyCategory !== undefined && { category: propertyCategory }),
+        ...(transactionType !== undefined && { transactionType: { has: transactionType } }),
         ...((!(n !== undefined && s !== undefined && e !== undefined && w !== undefined) && city !== undefined) ? { city } : {}), // City só é aplicado se BBOX não existir
       },
       select: {
         id: true,
         lat: true,
         lng: true,
-        price: true,
+        basePrice: true,
         isPremium: true,
         createdAt: true,
         title: true,
         bedrooms: true,
-        area: true,
+        areaUseful: true,
         featuredImage: true,
       },
     });

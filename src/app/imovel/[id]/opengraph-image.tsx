@@ -16,10 +16,10 @@ export default async function OGImage({ params }: { params: Promise<{ id: string
   } catch {}
 
   const title = property?.title || 'Imóvel disponível';
-  const price = property?.price ? `R$ ${property.price.toLocaleString('pt-BR')}` : '';
+  const price = property?.basePrice ? `R$ ${property.basePrice.toLocaleString('pt-BR')}` : '';
   const city = property?.city || 'Tocantins';
   const bedrooms = property?.bedrooms || '';
-  const area = property?.area || '';
+  const area = property?.areaUseful || '';
   const image = property?.featuredImage;
 
   return new ImageResponse(

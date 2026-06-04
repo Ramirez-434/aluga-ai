@@ -58,11 +58,11 @@ export default function PropertySidebar({ propertyId, onClose }: PropertySidebar
           <div className="flex justify-between items-end mb-6 bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-100 dark:border-white/5">
             <div>
               <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-1">Aluguel</p>
-              <p className="text-3xl font-bold text-primary">R$ {property.price.toLocaleString('pt-BR')}</p>
+              <p className="text-3xl font-bold text-primary">R$ {property.basePrice.toLocaleString('pt-BR')}</p>
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500 mb-1">Cond + IPTU</p>
-              <p className="font-medium text-gray-700 dark:text-gray-300">R$ {property.condo}</p>
+              <p className="font-medium text-gray-700 dark:text-gray-300">R$ {property.condominiumFee}</p>
             </div>
           </div>
 
@@ -81,7 +81,7 @@ export default function PropertySidebar({ propertyId, onClose }: PropertySidebar
             <div className="w-px bg-gray-100 dark:bg-white/10"></div>
             <div className="flex flex-col items-center flex-1">
               <Maximize size={20} className="text-gray-400 mb-1" />
-              <span className="font-medium text-gray-900 dark:text-white">{property.area}m²</span>
+              <span className="font-medium text-gray-900 dark:text-white">{property.areaUseful}m²</span>
               <span className="text-xs text-gray-500">Área Útil</span>
             </div>
           </div>

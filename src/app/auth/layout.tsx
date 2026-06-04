@@ -90,7 +90,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               </div>
               <div>
                 <p className="text-white/90 text-sm font-medium leading-snug">
-                  "Encontrei meu apartamento em 10 minutos usando o Corretor Virtual!"
+                  &quot;Encontrei meu apartamento em 10 minutos usando o Corretor Virtual!&quot;
                 </p>
                 <p className="text-white/40 text-xs mt-0.5">João Paulo · Estudante UNIRG</p>
               </div>

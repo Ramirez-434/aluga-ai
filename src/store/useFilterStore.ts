@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import { mutate } from 'swr';
 
 export interface FilterParams {
   minPrice: number;
@@ -8,6 +9,8 @@ export interface FilterParams {
   petFriendly: boolean | null;   // null = indiferente
   furnished: boolean | null;     // null = indiferente
   city: string | null;           // null = todas as cidades
+  propertyCategory: 'RESIDENTIAL' | 'COMMERCIAL';
+  transactionType: 'RENT' | 'SALE';
 }
 
 const DEFAULT_FILTERS: FilterParams = {
@@ -17,6 +20,8 @@ const DEFAULT_FILTERS: FilterParams = {
   petFriendly: null,
   furnished: null,
   city: null,
+  propertyCategory: 'RESIDENTIAL',
+  transactionType: 'RENT',
 };
 
 interface FilterStore {
@@ -47,7 +52,25 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
       newFilters.minBedrooms > 0 ||
       newFilters.petFriendly !== null ||
       newFilters.furnished !== null ||
-      newFilters.city !== null;
+      newFilters.city !== null ||
+      newFilters.propertyCategory !== 'RESIDENTIAL' ||
+      newFilters.transactionType !== 'RENT';
+
+    // Se mudou a categoria, podemos limpar alguns filtros que não fazem sentido (ex: quartos num galpão comercial)
+    if (key === 'propertyCategory' && value !== get().filters.propertyCategory) {
+      if (value === 'COMMERCIAL') {
+        newFilters.minBedrooms = 0;
+        newFilters.petFriendly = null;
+        newFilters.furnished = null;
+      }
+      
+      // Purgar agressivamente o cache do SWR para forçar o Loading State (Esqueleto)
+      mutate(
+        (key) => typeof key === 'string' && key.startsWith('/api/properties'),
+        undefined,
+        { revalidate: true }
+      );
+    }
 
     set({ filters: newFilters, hasActiveFilters: hasActive });
   },

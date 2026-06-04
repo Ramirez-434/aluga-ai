@@ -4,6 +4,7 @@ import { Search, Bell, UserCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useFilterStore } from '@/store/useFilterStore';
+import { motion } from 'framer-motion';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 
@@ -14,7 +15,7 @@ interface HeaderProps {
 export default function Header({ propertiesCount = 0 }: HeaderProps) {
   const [searchValue, setSearchValue] = useState('');
   const [scrolled, setScrolled] = useState(false);
-  const { setFilter } = useFilterStore();
+  const { filters, setFilter } = useFilterStore();
   const { data: session } = useSession();
 
   // Header fica "flutuante" ao scrollar
@@ -62,7 +63,7 @@ export default function Header({ propertiesCount = 0 }: HeaderProps) {
       </Link>
 
       {/* A10: Barra de Busca Global Funcional */}
-      <div className="hidden md:flex flex-1 max-w-sm mx-6">
+      <div className="hidden md:flex flex-1 max-w-sm ml-6">
         <div className="relative w-full flex items-center group">
           <Search
             className="absolute left-3.5 text-gray-400 group-focus-within:text-indigo-500 transition-colors"
@@ -84,6 +85,31 @@ export default function Header({ propertiesCount = 0 }: HeaderProps) {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Toggle Soberano (Residencial/Comercial) - Segmented Control via Framer Motion */}
+      <div className="hidden lg:flex items-center p-1 bg-gray-100 dark:bg-black/50 rounded-full border border-gray-200 dark:border-white/10 mx-auto relative shadow-inner">
+        {(['RESIDENTIAL', 'COMMERCIAL'] as const).map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilter('propertyCategory', mode)}
+            className={`relative px-5 py-1.5 rounded-full text-xs font-bold transition-colors z-10 ${
+              filters.propertyCategory === mode
+                ? 'text-indigo-600 dark:text-white'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
+          >
+            {filters.propertyCategory === mode && (
+              <motion.div
+                layoutId="active-toggle"
+                className="absolute inset-0 bg-white dark:bg-indigo-600 rounded-full shadow-sm"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                style={{ zIndex: -1 }}
+              />
+            )}
+            {mode === 'RESIDENTIAL' ? 'Residencial' : 'Comercial'}
+          </button>
+        ))}
       </div>
 
       {/* Actions */}
