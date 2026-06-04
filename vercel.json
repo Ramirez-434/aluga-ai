@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/properties",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

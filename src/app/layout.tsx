@@ -8,6 +8,7 @@ import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import Providers from '@/components/Providers'
 import { Toaster } from 'sonner'
 import JsonLd from '@/components/seo/JsonLd'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const metadata: Metadata = {
   title: 'Aluga AI — Imóveis em Gurupi e Natividade-TO',
@@ -88,6 +89,7 @@ export default function RootLayout({
               }
             ]
           }} />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>
