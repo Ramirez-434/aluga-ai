@@ -26,4 +26,5 @@ export interface Property {
   // Legacy fields for backward compat with mockProperties consumers
   tags?: string[];
   condo?: number;
+  nearestUniversity?: { distance: number; name: string };
 }

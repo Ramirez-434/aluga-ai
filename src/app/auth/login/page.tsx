@@ -38,10 +38,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSocial = (provider: string) => {
-    if (provider === 'Google') {
-      signIn('google', { callbackUrl: '/dashboard/tenant' });
-      return;
-    }
     toast.info(`Login com ${provider}`, {
       description: 'Integração OAuth será configurada em produção.'
     });

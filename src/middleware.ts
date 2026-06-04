@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
 
   // I73: Proteger rotas do painel de administração
   if (pathname.startsWith('/dashboard/admin')) {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({ req: request, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
 
     if (!token) {
       const loginUrl = new URL('/auth/login', request.url);

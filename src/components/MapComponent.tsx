@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup, useMap, Tooltip, Polygon, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EditControl } from 'react-leaflet-draw';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
-import { point } from '@turf/turf';
+import { point, distance } from '@turf/turf';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import L from 'leaflet';
-import { MOCK_POIS, POICategory } from '@/data/mockPOIs';
+import { MOCK_POIS } from '@/data/mockPOIs';
 import { Property } from '@/types/property';
 import { useTheme } from 'next-themes';
 import { LocateFixed, GraduationCap, Bed, Maximize } from 'lucide-react';
 import { UNIVERSITY_ZONES } from '@/data/universityZones';
+import { MapSearchBar } from './MapSearchBar';
+import { useFilterStore } from '@/store/useFilterStore';
 
 // Fix for default marker icons in react-leaflet
 const markerIconUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png';
@@ -34,7 +36,7 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // Custom price markers
-const createPriceIcon = (price: number, isDark: boolean, isNew: boolean = false, isPremium: boolean = false) => {
+const createPriceIcon = (price: number, isDark: boolean, isNew: boolean = false, isPremium: boolean = false, isHovered: boolean = false) => {
   let formattedPrice;
   if (price >= 1000000) {
     formattedPrice = `R$ ${(price / 1000000).toFixed(1)}M`;
@@ -56,16 +58,25 @@ const createPriceIcon = (price: number, isDark: boolean, isNew: boolean = false,
     extraHtml = '<div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); font-size: 16px;">👑</div>' + extraHtml;
   }
   
+  if (isHovered) {
+    bgColor = '#4f46e5';
+    textColor = '#ffffff';
+    borderColor = '#4f46e5';
+  }
+
   // C32: Pulse ring style se for imóvel novo (<24h)
   let pulseStyle = isNew ? `box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); animation: pulse-ring 2s infinite;` : `box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);`;
 
   if (isPremium) {
     pulseStyle += ` box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5);`;
   }
+  if (isHovered) {
+    pulseStyle += ` box-shadow: 0 8px 25px rgba(79, 70, 229, 0.6); transform: scale(1.15) translateY(-5px); z-index: 1000;`;
+  }
 
   return L.divIcon({
     className: 'custom-price-marker',
-    html: `<div style="background: ${bgColor}; color: ${textColor}; font-weight: bold; padding: 6px 12px; border-radius: 20px; border: 1px solid ${borderColor}; white-space: nowrap; font-size: 14px; transition: all 0.2s ease-in-out; display: flex; align-items: center; justify-content: center; transform-origin: bottom center; ${pulseStyle}" onmouseover="this.style.transform='scale(1.1)'; this.style.zIndex='1000'; this.style.backgroundColor='#4f46e5'; this.style.color='white';" onmouseout="this.style.transform='scale(1)'; this.style.zIndex='1'; this.style.backgroundColor=''; this.style.background='${bgColor}'; this.style.color='${textColor}';">
+    html: `<div style="background: ${bgColor}; color: ${textColor}; font-weight: bold; padding: 6px 12px; border-radius: 20px; border: 1px solid ${borderColor}; white-space: nowrap; font-size: 14px; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); display: flex; align-items: center; justify-content: center; transform-origin: bottom center; ${pulseStyle}" onmouseover="this.style.transform='scale(1.1)'; this.style.zIndex='1000'; this.style.backgroundColor='#4f46e5'; this.style.color='white';" onmouseout="this.style.transform='${isHovered ? 'scale(1.15) translateY(-5px)' : 'scale(1)'}'; this.style.zIndex='${isHovered ? '1000' : '1'}'; this.style.background='${bgColor}'; this.style.color='${textColor}';">
              ${formattedPrice}
              ${extraHtml}
            </div>
@@ -121,7 +132,7 @@ function LocateControl() {
   return (
     <button 
       onClick={(e) => { e.stopPropagation(); handleLocate(); }} 
-      className="absolute bottom-6 right-4 z-[400] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+      className="absolute bottom-28 right-4 md:right-6 z-[1000] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-3 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
       title="Minha Localização"
     >
       <LocateFixed className="w-5 h-5" />
@@ -134,9 +145,13 @@ interface MapProps {
   onPropertySelect?: (id: string) => void;
   onPolygonFilter?: (propertyIds: string[] | null) => void;
   onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void;
+  onMapInteraction?: () => void;
 }
 
-function BoundsListener({ onBoundsChange }: { onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void }) {
+function BoundsListener({ onBoundsChange, onMapInteraction }: { 
+  onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void;
+  onMapInteraction?: () => void;
+}) {
   const map = useMapEvents({
     moveend: () => {
       if (onBoundsChange) {
@@ -149,6 +164,9 @@ function BoundsListener({ onBoundsChange }: { onBoundsChange?: (bounds: { n: num
         const b = map.getBounds();
         onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
       }
+    },
+    dragend: () => {
+      if (onMapInteraction) onMapInteraction();
     }
   });
 
@@ -162,18 +180,24 @@ function BoundsListener({ onBoundsChange }: { onBoundsChange?: (bounds: { n: num
   return null;
 }
 
-export default function MapComponent({ properties, onPropertySelect, onPolygonFilter, onBoundsChange }: MapProps) {
+export default function MapComponent({ properties, onPropertySelect, onPolygonFilter, onBoundsChange, onMapInteraction }: MapProps) {
   const defaultCenter: [number, number] = [-11.726, -49.068]; // Gurupi, TO
 
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const hoveredPropertyId = useFilterStore(state => state.hoveredPropertyId);
   useEffect(() => setMounted(true), []);
   const isDark = mounted && resolvedTheme === 'dark';
 
-  const [activeCategories, setActiveCategories] = useState<POICategory[]>([]);
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [showUniversities, setShowUniversities] = useState(true);
+  
+  const [mapBounds, setMapBounds] = useState<{ n: number, s: number, e: number, w: number } | null>(null);
 
-  const toggleCategory = (cat: POICategory) => {
+  // Efeito para buscar POIs reais removido em favor do dataset estático (MOCK_POIS) para proteger contra banimento e latência.
+
+
+  const toggleCategory = (cat: string) => {
     setActiveCategories(prev => 
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
@@ -182,22 +206,27 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
   // C30: Rota entre imóvel selecionado e universidade mais próxima
   const [selectedPropId, setSelectedPropId] = useState<string | null>(null);
 
-  const getCategoryColor = (cat: POICategory) => {
+  const getCategoryColor = (cat: string) => {
     switch (cat) {
-      case 'escola': return '#3b82f6'; // blue
-      case 'farmacia': return '#ef4444'; // red
-      case 'turismo': return '#eab308'; // yellow
-      case 'comercio': return '#22c55e'; // green
-      default: return '#6b7280';
+      case 'university': return '#4f46e5'; // indigo
+      case 'hospital': return '#ef4444'; // red
+      case 'marketplace': return '#f59e0b'; // amber
+      default: return '#6b7280'; // gray
     }
   };
 
-  const categories: { id: POICategory, label: string }[] = [
-    { id: 'escola', label: 'Escolas' },
-    { id: 'farmacia', label: 'Farmácias' },
-    { id: 'turismo', label: 'Turismo' },
-    { id: 'comercio', label: 'Comércio' },
+  const categories = [
+    { id: 'university', label: 'Universidades' },
+    { id: 'hospital', label: 'Hospitais' },
+    { id: 'marketplace', label: 'Supermercados' },
   ];
+
+  const handleBoundsChange = useCallback((bounds: { n: number, s: number, e: number, w: number }) => {
+    setMapBounds(bounds);
+    if (onBoundsChange) {
+      onBoundsChange(bounds);
+    }
+  }, [onBoundsChange]);
 
   const onCreated = (e: any) => {
     const layer = e.layer;
@@ -228,16 +257,17 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
         style={{ height: '100%', width: '100%' }}
         zoomControl={false}
       >
-        {/* Map tiles depending on theme */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
-          url={isDark 
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          }
-        />
-        
-        <BoundsListener onBoundsChange={onBoundsChange} />
+          {/* Map tiles depending on theme */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+            url={isDark 
+              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            }
+          />
+          
+          <MapSearchBar />
+          <BoundsListener onBoundsChange={handleBoundsChange} onMapInteraction={onMapInteraction} />
         
         <LocateControl />
 
@@ -280,7 +310,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
             <Marker 
               key={prop.id} 
               position={[prop.lat, prop.lng]} 
-              icon={createPriceIcon(prop.price, isDark, isNew, (prop as any).isPremium)}
+              icon={createPriceIcon(prop.price, isDark, isNew, (prop as any).isPremium, hoveredPropertyId === prop.id)}
               //@ts-ignore
               price={prop.price} // Passando propriedade customizada para o cluster calcular a média
               eventHandlers={{
@@ -289,6 +319,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
                   if (onPropertySelect) onPropertySelect(prop.id);
                 }
               }}
+              zIndexOffset={hoveredPropertyId === prop.id ? 1000 : 0}
             >
               {/* Hover Preview (Item 3) */}
               <Tooltip 
@@ -339,27 +370,25 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
           })}
         </MarkerClusterGroup>
 
-        {/* POI Markers */}
-        {MOCK_POIS.filter(poi => activeCategories.includes(poi.category)).map(poi => (
-          <CircleMarker
-            key={poi.id}
-            center={[poi.lat, poi.lng]}
-            pathOptions={{ 
-              color: getCategoryColor(poi.category), 
-              fillColor: getCategoryColor(poi.category), 
-              fillOpacity: 0.8,
-              weight: 2
-            }}
-            radius={6}
-          >
-            <Popup>
-              <div className="text-center font-medium shadow-sm">
-                <span className="block text-xs uppercase text-gray-400 mb-1">{poi.category}</span>
-                {poi.name}
-              </div>
-            </Popup>
-          </CircleMarker>
-        ))}
+          {/* Real POI Markers (agora usando MOCK_POIS para zero latência) */}
+          {MOCK_POIS.filter(poi => activeCategories.includes(poi.category)).map(poi => (
+            <CircleMarker
+              key={poi.id}
+              center={[poi.lat, poi.lng]}
+              pathOptions={{ 
+                color: getCategoryColor(poi.category), 
+                fillColor: getCategoryColor(poi.category), 
+                fillOpacity: 0.8,
+                weight: 2
+              }}
+              radius={6}
+            >
+              <Tooltip direction="top" offset={[0, -10]}>
+                <span className="font-semibold">{poi.name}</span>
+                <span className="block text-xs opacity-80 capitalize">{poi.category}</span>
+              </Tooltip>
+            </CircleMarker>
+          ))}
 
         {/* University Zones (Item 22) */}
         {showUniversities && UNIVERSITY_ZONES.map(zone => (
@@ -380,18 +409,33 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
           </Polygon>
         ))}
 
-        {/* C30: Rota do imóvel selecionado para a universidade central (mock UnirG) */}
+        {/* C30: Rota do imóvel selecionado para a universidade mais próxima */}
         {selectedPropId && (() => {
           const prop = properties.find(p => p.id === selectedPropId);
           if (!prop) return null;
-          // Coordenadas centrais aproximadas do Campus I da UnirG
-          const unirgCenter: [number, number] = [-11.728, -49.066]; 
+          
+          let minDistance = Infinity;
+          let nearestUni: [number, number] | null = null;
+          let uniName = "Campus";
+
+          const universities = MOCK_POIS.filter(p => p.category === 'university');
+          for (const uni of universities) {
+            const distKm = distance(point([prop.lng, prop.lat]), point([uni.lng, uni.lat]), { units: 'kilometers' });
+            if (distKm < minDistance) {
+              minDistance = distKm;
+              nearestUni = [uni.lat, uni.lng];
+              uniName = uni.name;
+            }
+          }
+
+          if (!nearestUni) return null;
+
           return (
             <Polygon 
-              positions={[[prop.lat, prop.lng], unirgCenter]}
+              positions={[[prop.lat, prop.lng], nearestUni]}
               pathOptions={{ color: '#4f46e5', weight: 4, dashArray: '10, 10' }}
             >
-               <Tooltip direction="auto" permanent>Rota mais rápida para Campus</Tooltip>
+               <Tooltip direction="auto" permanent>Rota p/ {uniName} ({minDistance < 1 ? `${Math.round(minDistance * 1000)}m` : `${minDistance.toFixed(1)}km`})</Tooltip>
             </Polygon>
           );
         })()}
@@ -399,8 +443,10 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
       </MapContainer>
 
       {/* POI Filter Toggles (Floating UI) */}
-      <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-gray-200 dark:border-white/10">
-        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center mb-1">Conveniências</p>
+      <div className="absolute top-4 right-4 z-[1010] flex flex-col gap-2 bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-gray-200 dark:border-white/10">
+        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center mb-1 flex items-center justify-center gap-1">
+          Conveniências
+        </p>
         <div className="flex flex-col gap-2">
           {categories.map(c => {
             const isActive = activeCategories.includes(c.id);

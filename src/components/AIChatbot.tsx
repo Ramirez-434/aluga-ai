@@ -36,15 +36,25 @@ export default function AIChatbot() {
   const { data: session, status } = useSession();
 
   // E43: Carregar histórico do localStorage (apenas para fallback offline/anon)
-  const savedMessages = typeof window !== 'undefined'
-    ? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-    : [];
-
   const [input, setInput] = useState('');
   
-  const { messages, sendMessage, error, setMessages, status: chatStatus } = useChat({
-    messages: savedMessages
-  });
+  const { messages, sendMessage, error, setMessages, status: chatStatus } = useChat();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        } catch (e) {
+          console.error('Failed to parse chat history', e);
+        }
+      }
+    }
+  }, [setMessages]);
 
   const isLoading = chatStatus === 'streaming' || chatStatus === 'submitted';
 
@@ -116,17 +126,22 @@ export default function AIChatbot() {
     }
   }, [isListening, setInput]);
 
-  // E43: Buscar histórico real do banco se autenticado
+  // E44: Buscar histórico do servidor se estiver logado
   useEffect(() => {
     if (status === 'authenticated') {
       fetch('/api/chat/history')
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error('Falha ao carregar histórico');
+          return res.json();
+        })
         .then(data => {
-          if (data.messages && data.messages.length > 0) {
+          if (data?.messages && data.messages.length > 0) {
             setMessages(data.messages);
           }
         })
-        .catch(console.error);
+        .catch(err => {
+          console.error("Erro no fetch de histórico:", err);
+        });
     }
   }, [status, setMessages]);
 
@@ -282,7 +297,7 @@ export default function AIChatbot() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-6 right-6 z-[400] w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-indigo-500/40 hover:scale-110 hover:shadow-indigo-500/60 transition-all duration-300 ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
+        className={`fixed bottom-6 right-4 sm:right-6 z-[9999] w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-indigo-500/40 hover:scale-110 hover:shadow-indigo-500/60 transition-all duration-300 ${isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'}`}
       >
         <Sparkles size={22} />
         {/* E48: Ponto de notificação proativo */}
@@ -292,7 +307,7 @@ export default function AIChatbot() {
       </button>
 
       {/* Chat Window */}
-      <div className={`fixed bottom-6 right-4 sm:right-6 z-[500] w-[calc(100vw-32px)] sm:w-[400px] h-[600px] max-h-[80vh] bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl shadow-black/20 flex flex-col overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-90 opacity-0 pointer-events-none'}`}>
+      <div className={`fixed bottom-6 right-4 sm:right-6 z-[9999] w-[calc(100vw-32px)] sm:w-[400px] h-[600px] max-h-[80vh] bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-3xl shadow-2xl shadow-black/20 flex flex-col overflow-hidden transition-all duration-300 transform origin-bottom-right ${isOpen ? 'scale-100 opacity-100' : 'scale-90 opacity-0 pointer-events-none'}`}>
         
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-4 flex items-center justify-between text-white shrink-0">
@@ -380,7 +395,7 @@ export default function AIChatbot() {
           )}
 
           {messages.map(m => {
-            const textContent = m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || '';
+            const textContent = m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || m.content || '';
 
             return (
               <div key={m.id} className={`flex flex-col gap-2 ${m.role === 'user' ? 'items-end' : 'items-start'}`}>

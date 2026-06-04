@@ -1,8 +1,22 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { Redis } from '@upstash/redis';
+import { MOCK_POIS } from '@/data/mockPOIs';
 
 const prisma = new PrismaClient();
+
+// Fórmula de Haversine nativa para performance no Node.js
+function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  return R * c; 
+}
 
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
   ? new Redis({
@@ -29,6 +43,18 @@ export async function GET(req: NextRequest) {
     const cursor     = searchParams.get('cursor')      || undefined;
     const limit      = searchParams.get('limit')       ? Number(searchParams.get('limit'))       : 10;
 
+    // BBOX Coordinates (Prioridade sobre city)
+    const n = searchParams.get('n') ? Number(searchParams.get('n')) : undefined;
+    const s = searchParams.get('s') ? Number(searchParams.get('s')) : undefined;
+    const e = searchParams.get('e') ? Number(searchParams.get('e')) : undefined;
+    const w = searchParams.get('w') ? Number(searchParams.get('w')) : undefined;
+
+    const hasBounds = n !== undefined && s !== undefined && e !== undefined && w !== undefined;
+    const boundsWhere = hasBounds ? {
+      lat: { gte: s, lte: n },
+      lng: { gte: w, lte: e }
+    } : {};
+
     // Gerar chave de cache baseada nos parâmetros da URL
     const cacheKey = `properties:feed:${req.nextUrl.search || 'default'}`;
 
@@ -40,16 +66,17 @@ export async function GET(req: NextRequest) {
     }
 
     const properties = await prisma.property.findMany({
-      take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: limit + 1, // +1 para checar se há próxima página
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       where: {
         isActive: true,
+        ...boundsWhere, // Geometria injetada
         ...(minPrice   !== undefined && { price:    { gte: minPrice } }),
         ...(maxPrice   !== undefined && { price:    { lte: maxPrice } }),
         ...(bedrooms   !== undefined && { bedrooms: { gte: bedrooms } }),
         ...(petFriendly !== undefined && { petFriendly }),
         ...(furnished  !== undefined && { furnished }),
-        ...(city       !== undefined && { city }),
+        ...((!hasBounds && city !== undefined) ? { city } : {}), // City só é aplicado se BBOX não existir
       },
       orderBy: [
         { isPremium: 'desc' },
@@ -64,7 +91,23 @@ export async function GET(req: NextRequest) {
       nextCursor = nextItem?.id ?? null;
     }
 
-    const responsePayload = { properties, nextCursor };
+    // Injeção Matemática (Server-Side Haversine)
+    const universities = MOCK_POIS.filter(p => p.category === 'university');
+    
+    const propertiesWithDistance = properties.map(p => {
+      let minDistance = Infinity;
+      let nearestUni = null;
+      for (const uni of universities) {
+        const d = getHaversineDistance(p.lat, p.lng, uni.lat, uni.lng);
+        if (d < minDistance) {
+          minDistance = d;
+          nearestUni = { name: uni.name, distance: d };
+        }
+      }
+      return { ...p, nearestUniversity: nearestUni };
+    });
+
+    const responsePayload = { properties: propertiesWithDistance, nextCursor };
 
     if (redis) {
       // Salva no cache com expiração de 60 segundos

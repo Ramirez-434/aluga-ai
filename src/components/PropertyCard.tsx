@@ -6,6 +6,7 @@ import { Bed, Bath, Maximize, Heart, MapPin, Scale, PawPrint, Sofa, Share2, Eye 
 import { Property } from "@/data/mockProperties";
 import { useCompareStore } from "@/store/useCompareStore";
 import { useFavoriteStore } from "@/store/useFavoriteStore";
+import { useFilterStore } from "@/store/useFilterStore";
 import { useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
   const { favorites, toggleFavorite } = useFavoriteStore();
   const { status } = useSession();
   const router = useRouter();
+  const setHoveredPropertyId = useFilterStore((state) => state.setHoveredPropertyId);
 
   const isCompared = compareList.some(p => p.id === property.id);
   const isFavorite = favorites.includes(property.id);
@@ -52,6 +54,8 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
 
   // B14: badge novo
   const propertyIsNew = isNew((property as any).createdAt || new Date());
+
+  const nearestUniversity = property.nearestUniversity;
 
   const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -212,6 +216,13 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
               {property.address || `${(property as any).neighborhood ?? ''}, ${(property as any).city ?? ''}`}
             </span>
           </div>
+          
+          {/* Badge de distância até faculdade */}
+          {nearestUniversity && nearestUniversity.distance < 3 && (
+            <div className="flex items-center mt-1.5 gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-900/20 w-fit px-1.5 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/30">
+              📍 {nearestUniversity.distance < 1 ? `${Math.round(nearestUniversity.distance * 1000)}m` : `${nearestUniversity.distance.toFixed(1)}km`} em linha reta do {nearestUniversity.name}
+            </div>
+          )}
         </div>
 
         {/* Stats */}
@@ -307,6 +318,8 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
     return (
       <div
         onClick={onClick}
+        onMouseEnter={() => setHoveredPropertyId(property.id)}
+        onMouseLeave={() => setHoveredPropertyId(null)}
         className={containerClasses}
         role="button"
         tabIndex={0}
@@ -319,7 +332,11 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
   }
 
   return (
-    <div className={containerClasses}>
+    <div 
+      className={containerClasses}
+      onMouseEnter={() => setHoveredPropertyId(property.id)}
+      onMouseLeave={() => setHoveredPropertyId(null)}
+    >
       {backgroundSwipeActions}
       <Link href={`/imovel/${property.id}`} className="block h-full w-full">
         {innerCard}

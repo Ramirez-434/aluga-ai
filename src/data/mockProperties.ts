@@ -11,6 +11,7 @@ export type Property = {
   lat: number;
   lng: number;
   tags: string[];
+  nearestUniversity?: { distance: number; name: string };
 };
 
 export const MOCK_PROPERTIES: Property[] = [

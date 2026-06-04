@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         ...(bedrooms   !== undefined && { bedrooms: { gte: bedrooms } }),
         ...(petFriendly !== undefined && { petFriendly }),
         ...(furnished  !== undefined && { furnished }),
-        ...(city       !== undefined && { city }),
+        ...((!(n !== undefined && s !== undefined && e !== undefined && w !== undefined) && city !== undefined) ? { city } : {}), // City só é aplicado se BBOX não existir
       },
       select: {
         id: true,

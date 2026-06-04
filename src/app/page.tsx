@@ -41,7 +41,6 @@ export default function Home() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [polygonFilteredIds, setPolygonFilteredIds] = useState<string[] | null>(null);
   const [mapBounds, setMapBounds] = useState<{ n: number, s: number, e: number, w: number } | null>(null);
-  const [showMobileMap, setShowMobileMap] = useState(false); // H67
   const { filters, hasActiveFilters, setDrawerOpen, setFilter } = useFilterStore();
 
   const fetcher = (url: string) => fetch(url).then(res => {
@@ -62,6 +61,15 @@ export default function Home() {
     if (pageIndex > 0 && previousPageData.nextCursor) {
       params.append('cursor', previousPageData.nextCursor);
     }
+    
+    // Sincronia Espacial: Passar os limites do mapa também para o Feed (Sidebar)
+    if (debouncedMapBounds) {
+      params.append('n', debouncedMapBounds.n.toString());
+      params.append('s', debouncedMapBounds.s.toString());
+      params.append('e', debouncedMapBounds.e.toString());
+      params.append('w', debouncedMapBounds.w.toString());
+    }
+
     return `/api/properties?${params.toString()}`;
   };
 
@@ -132,12 +140,12 @@ export default function Home() {
       <Header propertiesCount={properties.filter(p => isNew((p as any).createdAt || new Date())).length} />
 
       {/* Main Split Layout */}
-      <main className="flex flex-1 flex-col md:flex-row overflow-hidden">
-        
-        {/* Left Panel: Filters & Property List */}
-        <section className="w-full md:w-1/2 lg:w-[600px] h-full flex flex-col bg-gray-50 dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-white/5 z-10 shrink-0">
-          
-          {/* Filters Bar */}
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Left Panel: Feed — visible ONLY on md+ */}
+        <section className={`
+          flex-col w-full md:w-[480px] lg:w-[550px] bg-gray-50/50 dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-white/5 
+          hidden md:flex
+        `}>  {/* Filters Bar */}
           <div className="p-4 border-b border-gray-200 dark:border-white/5 bg-white/80 dark:bg-black/60 backdrop-blur-md sticky top-0 z-20">
             <div className="flex items-center justify-between">
               <p className="font-medium text-sm text-gray-600 dark:text-gray-300">
@@ -235,46 +243,32 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Right Panel: Map — always in DOM, visible md+ or when showMobileMap */}
+        {/* Right Panel: Map — always visible, taking full width on mobile */}
         <section className={`
-          flex-1 h-full relative z-0
-          ${showMobileMap ? 'block fixed inset-0 z-[300]' : 'hidden md:block'}
+          flex-1 h-full relative z-0 block w-full
         `}>
           <MapComponent 
             properties={mapPropertiesToDisplay}
             onPropertySelect={setSelectedPropertyId} 
             onPolygonFilter={handlePolygonFilter}
             onBoundsChange={setMapBounds}
+            onMapInteraction={() => {
+              if (filters.city !== null) {
+                setFilter('city', null);
+                toast('Exploração Espacial', { description: 'Filtro de cidade limpo pois você moveu o mapa manualmente.' });
+              }
+            }}
           />
           
           {/* Status pill */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[400] bg-white/95 dark:bg-black/85 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-black/5 dark:border-white/10 flex items-center gap-2">
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1010] bg-white/95 dark:bg-black/85 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-black/5 dark:border-white/10 flex items-center gap-2 pointer-events-none">
             <div className={`w-2 h-2 rounded-full ${isLoadingInitialData ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
             <span className="text-xs font-semibold dark:text-gray-200 text-gray-700">
               {isLoadingInitialData ? 'Carregando...' : polygonFilteredIds ? `${mapPropertiesToDisplay.length} na área` : `${mapProperties.length} imóveis no mapa`}
             </span>
           </div>
 
-          {/* H67: Fechar mapa fullscreen no mobile */}
-          {showMobileMap && (
-            <button
-              onClick={() => setShowMobileMap(false)}
-              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[400] bg-white dark:bg-[#111] text-gray-800 dark:text-white px-6 py-3 rounded-full shadow-xl font-bold text-sm border border-gray-200 dark:border-white/10 flex items-center gap-2"
-            >
-              ✕ Fechar Mapa
-            </button>
-          )}
         </section>
-
-        {/* H67: Botão flutuante "Ver Mapa" no mobile */}
-        {!showMobileMap && (
-          <button
-            onClick={() => setShowMobileMap(true)}
-            className="md:hidden fixed bottom-20 right-4 z-[390] bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-3 rounded-full shadow-xl shadow-indigo-500/40 font-bold text-sm flex items-center gap-2"
-          >
-            <MapIcon size={16} /> Ver Mapa
-          </button>
-        )}
 
 
       </main>

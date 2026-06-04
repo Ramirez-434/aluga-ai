@@ -178,3 +178,11 @@ model SavedSearch {
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model GeocodingCache {
+  id        String   @id @default(uuid())
+  query     String   @unique
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+}

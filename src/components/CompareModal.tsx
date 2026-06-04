@@ -24,7 +24,7 @@ export default function CompareModal() {
         <div className="flex-1 overflow-auto p-6 md:p-8">
           <div className="flex gap-6 min-w-max">
             {/* Primeira Coluna: Labels */}
-            <div className="w-32 flex flex-col shrink-0 mt-[260px] space-y-4">
+            <div className="w-32 flex flex-col shrink-0 mt-[300px] space-y-4">
               <div className="h-12 flex items-center text-xs font-bold text-gray-500 uppercase tracking-wider">Aluguel</div>
               <div className="h-12 flex items-center text-xs font-bold text-gray-500 uppercase tracking-wider">Área</div>
               <div className="h-12 flex items-center text-xs font-bold text-gray-500 uppercase tracking-wider">Quartos</div>
@@ -49,9 +49,11 @@ export default function CompareModal() {
                   >
                     <X size={16} />
                   </button>
-                  <img src={prop.featuredImage} alt={prop.title} className="w-full h-48 object-cover rounded-xl mb-4" />
-                  <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1 line-clamp-1">{prop.title}</h3>
-                  <p className="text-xs text-gray-500 mb-6 h-8 line-clamp-2">{prop.address}</p>
+                  <div className="h-[280px]">
+                    <img src={prop.featuredImage} alt={prop.title} className="w-full h-48 object-cover rounded-xl mb-4" />
+                    <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1 line-clamp-1">{prop.title}</h3>
+                    <p className="text-xs text-gray-500 line-clamp-2">{prop.address}</p>
+                  </div>
 
                   <div className="space-y-4">
                     <div className="h-12 flex items-center border-b border-gray-100 dark:border-white/5 text-2xl font-bold text-primary">

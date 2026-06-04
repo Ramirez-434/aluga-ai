@@ -1,7 +1,38 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Lock, UserCog } from "lucide-react";
+import { ArrowRight, ShieldCheck, Lock, UserCog, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+
+    setIsLoading(true);
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      toast.error("Acesso negado", { description: "Credenciais de administrador inválidas." });
+      setIsLoading(false);
+    } else {
+      toast.success("Acesso autorizado", { description: "Redirecionando para o painel restrito..." });
+      router.push("/dashboard/admin");
+    }
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8 text-center flex flex-col items-center">
@@ -14,13 +45,15 @@ export default function AdminLoginPage() {
         </p>
       </div>
 
-      <form className="space-y-4">
+      <form className="space-y-4" onSubmit={handleLogin}>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID do Administrador</label>
           <div className="relative">
             <UserCog className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@aluga.ai"
               className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:text-white"
             />
@@ -33,16 +66,28 @@ export default function AdminLoginPage() {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:text-white"
             />
           </div>
         </div>
 
-        <Link href="/dashboard/admin" className="w-full py-3 mt-6 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold shadow-lg shadow-red-600/30 transition-all flex items-center justify-center gap-2 group">
-          Autorizar Acesso
-          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-        </Link>
+        <button 
+          disabled={isLoading || !email || !password}
+          type="submit" 
+          className="w-full py-3 mt-6 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-lg shadow-red-600/30 transition-all flex items-center justify-center gap-2 group"
+        >
+          {isLoading ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <>
+              Autorizar Acesso
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
       </form>
 
       <div className="mt-12 pt-6 border-t border-gray-100 dark:border-white/10 text-center">

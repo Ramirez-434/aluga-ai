@@ -5,7 +5,7 @@ import { getToken } from 'next-auth/jwt';
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
   const userId = token?.sub as string | undefined;
 
   if (!userId) {

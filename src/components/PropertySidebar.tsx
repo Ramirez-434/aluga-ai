@@ -24,26 +24,31 @@ export default function PropertySidebar({ propertyId, onClose }: PropertySidebar
         onClick={onClose}
       />
       
-      {/* Sidebar Panel */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white dark:bg-[#0a0a0a] shadow-2xl z-[201] flex flex-col animate-in slide-in-from-right duration-300 border-l border-gray-200 dark:border-white/10 overflow-hidden">
+      {/* Sidebar Panel / Bottom Sheet */}
+      <div className="fixed md:top-0 md:right-0 bottom-0 left-0 w-full md:max-w-md h-[85vh] md:h-full bg-white dark:bg-[#0a0a0a] shadow-2xl z-[500] flex flex-col animate-in slide-in-from-bottom md:slide-in-from-right duration-300 rounded-t-3xl md:rounded-none md:border-l border-gray-200 dark:border-white/10 overflow-hidden">
+        
+        {/* Mobile Drag Handle (Pill) */}
+        <div className="w-full flex justify-center pt-3 pb-1 md:hidden absolute top-0 z-10">
+          <div className="w-12 h-1.5 bg-gray-300 dark:bg-white/20 rounded-full"></div>
+        </div>
         
         <div className="relative h-64 w-full shrink-0">
           <img src={property.featuredImage} alt={property.title} className="w-full h-full object-cover" />
           <button 
             onClick={onClose}
-            className="absolute top-4 left-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
+            className="absolute top-6 md:top-4 left-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-md transition-colors"
           >
             <X size={20} />
           </button>
           
-          <div className="absolute top-4 right-4 flex gap-2">
+          <div className="absolute top-6 md:top-4 right-4 flex gap-2">
             <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider bg-green-500 text-white rounded-full shadow-lg">
               Preço Justo IA
             </span>
           </div>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 overflow-y-auto pb-24 md:pb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{property.title}</h2>
           <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-6">
             <MapPin size={16} className="mr-1 text-primary" />

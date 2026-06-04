@@ -4,11 +4,12 @@ import { z } from 'zod';
 import { PrismaClient } from '@prisma/client';
 import { getToken } from 'next-auth/jwt';
 import { NextRequest } from 'next/server';
+import { MOCK_POIS } from '@/data/mockPOIs';
 
 const prisma = new PrismaClient();
 
 // Definimos o LLM (Gemini 1.5 Flash - rápido e excelente para visão)
-const model = google('gemini-1.5-flash');
+const model = google('gemini-2.5-flash');
 
 export async function POST(req: NextRequest) {
   const { messages, propertyId } = await req.json();
@@ -18,29 +19,36 @@ export async function POST(req: NextRequest) {
   }
 
   // E43: Pegar o usuário logado para persistir histórico
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
   const userId = token?.sub as string | undefined;
 
   // Se o usuário estiver logado, salva a mensagem do usuário no banco
   if (userId) {
     const lastUserMessage = messages[messages.length - 1];
     if (lastUserMessage?.role === 'user') {
+      let contentToSave = lastUserMessage.content || '';
+      if (!contentToSave && lastUserMessage.parts) {
+        contentToSave = lastUserMessage.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('');
+      }
+
       await prisma.chatHistory.create({
         data: {
           userId,
           role: 'user',
-          content: lastUserMessage.content,
+          content: contentToSave,
         }
       });
     }
   }
 
-  let finalMessages = [...messages];
+  let finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content || '' }));
   let systemInstruction = `Você é o Aluga AI, o Corretor de Imóveis Virtual de elite focado em locação em Gurupi e Natividade (Tocantins).
 
-CONTEXTO GEOGRÁFICO DE BAIRROS:
-- Gurupi: A UnirG fica na Região Central / Setor Sul (bairro mais caro, excelente para estudantes de Medicina, agitado e prático). A UFT fica no Vetor Sul (Setor Nova Fronteira, mais residencial e afastado). O Centro Expandido é comercial e de alto padrão.
-- Natividade: Polo turístico e sede da Unitins. O Centro Histórico possui casarões coloniais charmosos (ótimo para turismo/cultura). Arredores da Unitins focam em kitnets estudantis econômicas.
+CONTEXTO GEOGRÁFICO E DISTÂNCIAS (ÍMÃS DE DEMANDA):
+- A Engine Espacial do Frontend agora calcula automaticamente a distância linear (usando Turf.js) de todos os imóveis para a Universidade mais próxima e injeta um Micro-Badge no card (ex: "📍 A 1.2km do Campus UnirG").
+- Gurupi: A UnirG fica na Região Central / Setor Sul (bairro mais caro, agitado, onde a proximidade a pé vale ouro). A UFT fica no Vetor Sul (Setor Nova Fronteira, mais residencial).
+- Natividade: Polo da Unitins. O foco nos arredores da Unitins são kitnets estudantis econômicas.
+- Use isso como argumento de venda: Se um imóvel é muito perto do campus, destaque a economia de tempo. Se é mais distante, destaque a tranquilidade ou o preço melhor.
 
 COMO NEGOCIAR E LIDAR COM OBJEÇÕES (MODO CORRETOR EXPERIENTE):
 - Se o usuário achar um imóvel caro (ex: kitnet de R$ 850 na UnirG), aja como corretor: "Sim, é um pouco acima da média, mas a economia de combustível, tempo de deslocamento e segurança por morar do lado da faculdade compensam demais em poucos meses!"
@@ -70,8 +78,15 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
       if (lastUserMessageIndex !== -1 && imagesToProcess.length > 0) {
         const lastMsg = finalMessages[lastUserMessageIndex];
         
+        let textContent = '';
+        if (typeof lastMsg.content === 'string') {
+          textContent = lastMsg.content;
+        } else if (Array.isArray(lastMsg.content)) {
+          textContent = lastMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\\n');
+        }
+
         const newContent: any[] = [
-          { type: 'text', text: lastMsg.content }
+          { type: 'text', text: textContent }
         ];
 
         // Limita a 5 imagens para controle de token/bandwidth
@@ -140,6 +155,43 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
           };
         },
       }),
+      searchPropertiesNearCampus: tool({
+        description: 'Busca imóveis localizados fisicamente próximos a uma Universidade usando cálculo geodésico (Haversine)',
+        parameters: z.object({
+          campusName: z.enum(['Campus UnirG', 'Campus UFT - Gurupi', 'Polo UNITINS']).describe('Nome exato do campus'),
+          maxDistanceKm: z.number().optional().default(3).describe('Raio máximo de distância em km'),
+        }),
+        execute: async ({ campusName, maxDistanceKm }) => {
+          const campus = MOCK_POIS.find(p => p.name === campusName);
+          if (!campus) return { error: 'Campus não encontrado' };
+          
+          try {
+            // Utilizamos queryRaw para executar a matemática espacial diretamente no banco Postgres
+            const properties = await prisma.$queryRaw<any[]>`
+              SELECT id, title, price, bedrooms, address, city,
+              (6371 * acos(cos(radians(${campus.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${campus.lng})) + sin(radians(${campus.lat})) * sin(radians(lat)))) AS distance
+              FROM "Property"
+              WHERE "isActive" = true
+              AND (6371 * acos(cos(radians(${campus.lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${campus.lng})) + sin(radians(${campus.lat})) * sin(radians(lat)))) < ${maxDistanceKm}
+              ORDER BY distance ASC
+              LIMIT 3;
+            `;
+            
+            return properties.map(p => ({
+              id: p.id,
+              title: p.title,
+              price: p.price,
+              bedrooms: p.bedrooms,
+              address: p.address,
+              distanceKm: Number(p.distance).toFixed(1),
+              url: `/property/${p.id}`
+            }));
+          } catch (e) {
+            console.error('Erro na busca geoespacial', e);
+            return { error: 'Ocorreu um erro no motor geográfico.' };
+          }
+        }
+      })
     },
     onFinish: async ({ text, toolCalls }) => {
       // E43: Persistir a resposta final do AI no banco se o usuário estiver logado
