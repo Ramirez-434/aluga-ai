@@ -24,10 +24,12 @@ interface FilterStore {
   isDrawerOpen: boolean;
   hasActiveFilters: boolean;
   hoveredPropertyId: string | null;
+  mapBounds: { n: number, s: number, e: number, w: number } | null;
   setFilter: <K extends keyof FilterParams>(key: K, value: FilterParams[K]) => void;
   resetFilters: () => void;
   setDrawerOpen: (open: boolean) => void;
   setHoveredPropertyId: (id: string | null) => void;
+  setMapBounds: (bounds: { n: number, s: number, e: number, w: number } | null) => void;
 }
 
 export const useFilterStore = create<FilterStore>((set, get) => ({
@@ -35,6 +37,7 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
   isDrawerOpen: false,
   hasActiveFilters: false,
   hoveredPropertyId: null,
+  mapBounds: null,
 
   setFilter: (key, value) => {
     const newFilters = { ...get().filters, [key]: value };
@@ -57,4 +60,6 @@ export const useFilterStore = create<FilterStore>((set, get) => ({
   setDrawerOpen: (open) => set({ isDrawerOpen: open }),
 
   setHoveredPropertyId: (id) => set({ hoveredPropertyId: id }),
+
+  setMapBounds: (bounds) => set({ mapBounds: bounds }),
 }));

@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/utils/prisma";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
-
-const prisma = new PrismaClient();
+import { revalidateTag } from "next/cache";
 
 const propertySchema = z.object({
   title: z.string().min(5, "Título muito curto").max(100, "Título muito longo").optional(),
@@ -65,8 +63,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     });
 
     // G61: On-Demand ISR revalidate
-    revalidatePath(`/imovel/${id}`);
-    revalidatePath(`/`);
+    // @ts-expect-error Next.js 16 typings bug
+    revalidateTag(`property-${id}`);
+    // @ts-expect-error Next.js 16 typings bug
+    revalidateTag(`properties`);
 
     return NextResponse.json({ success: true, property });
   } catch (error) {

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/utils/prisma";
 import { z } from "zod";
 import webpush from "web-push";
 import { waitUntil } from "@vercel/functions";
-
-const prisma = new PrismaClient();
+import { revalidateTag } from "next/cache";
 
 // Configuração do VAPID para disparos do Radar
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -132,6 +131,10 @@ export async function POST(req: Request) {
         }
       })()
     );
+
+    // G61: On-Demand ISR revalidate
+    // @ts-expect-error Next.js 16 typings bug
+    revalidateTag('properties');
 
     return NextResponse.json({ success: true, property });
   } catch (error) {

@@ -1,26 +1,25 @@
 import { streamText, tool } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
-import { PrismaClient } from '@prisma/client';
-import { getToken } from 'next-auth/jwt';
 import { NextRequest } from 'next/server';
+import { getToken } from 'next-auth/jwt';
+import { auth } from '@/auth';
+import { logToDiscord } from '@/utils/logger';
 import { MOCK_POIS } from '@/data/mockPOIs';
+import { prisma } from '@/utils/prisma';
 
-const prisma = new PrismaClient();
-
-// Definimos o LLM (Gemini 1.5 Flash - rápido e excelente para visão)
 const model = google('gemini-2.5-flash');
 
 export async function POST(req: NextRequest) {
-  const { messages, propertyId } = await req.json();
+  const { messages, propertyId, mapBounds } = await req.json();
 
   if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
     return new Response(JSON.stringify({ error: 'Missing GOOGLE_GENERATIVE_AI_API_KEY in .env' }), { status: 500 });
   }
 
-  // E43: Pegar o usuário logado para persistir histórico
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
-  const userId = token?.sub as string | undefined;
+    // E43: Pegar o usuário logado para persistir histórico
+    const token = await getToken({ req, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
+    const userId = token?.sub as string | undefined;
 
   // Se o usuário estiver logado, salva a mensagem do usuário no banco
   if (userId) {
@@ -57,6 +56,14 @@ COMO NEGOCIAR E LIDAR COM OBJEÇÕES (MODO CORRETOR EXPERIENTE):
 REGRAS DE BUSCA E FERRAMENTAS:
 Sempre que o usuário demonstrar intenção de busca (ex: "quero ap de 2 quartos", "tem algo pet friendly?"), VOCÊ DEVE invocar a ferramenta searchProperties com os filtros. 
 Após a ferramenta retornar resultados, NÃO liste ou repita os detalhes do imóvel em texto longo. A interface já criará os cards lindamente. Diga apenas algo como: "Encontrei estas excelentes opções que encaixam no seu perfil!"`;
+
+  // E: Visão Espacial (BBOX)
+  if (mapBounds) {
+    systemInstruction += `\n\n[VISÃO ESPACIAL ATIVADA]
+O usuário está visualizando o mapa delimitado pelas coordenadas geográficas (BBOX):
+Norte: ${mapBounds.n}, Sul: ${mapBounds.s}, Leste: ${mapBounds.e}, Oeste: ${mapBounds.w}.
+Se o usuário perguntar "O que tem nesta região?", "O que tem por aqui?" ou perguntas sobre o bairro atual, USE a ferramenta summarizeArea para ler os imóveis deste exato local no banco de dados e dar uma resposta altamente analítica.`;
+  }
 
   // E: Multimodal Vision
   if (propertyId) {
@@ -161,6 +168,7 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
           campusName: z.enum(['Campus UnirG', 'Campus UFT - Gurupi', 'Polo UNITINS']).describe('Nome exato do campus'),
           maxDistanceKm: z.number().optional().default(3).describe('Raio máximo de distância em km'),
         }),
+        // @ts-ignore
         execute: async ({ campusName, maxDistanceKm }: { campusName: string; maxDistanceKm: number }) => {
           const campus = MOCK_POIS.find(p => p.name === campusName);
           if (!campus) return { error: 'Campus não encontrado' };
@@ -191,20 +199,94 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
             return { error: 'Ocorreu um erro no motor geográfico.' };
           }
         }
+      }),
+      summarizeArea: tool({
+        description: 'Lê os imóveis que estão na área que o usuário está visualizando agora (usando as coordenadas BBOX) e resume a região.',
+        parameters: z.object({
+          requestSummary: z.boolean().describe('Sempre true ao chamar esta ferramenta')
+        }),
+        // @ts-ignore
+        execute: async () => {
+          if (!mapBounds) {
+            return { error: 'O usuário não está visualizando nenhuma área específica no momento.' };
+          }
+          
+          try {
+            // 1. Agregação segura (Não explode tokens)
+            const stats = await prisma.property.aggregate({
+              where: {
+                isActive: true,
+                lat: { lte: mapBounds.n, gte: mapBounds.s },
+                lng: { lte: mapBounds.e, gte: mapBounds.w },
+              },
+              _avg: { price: true },
+              _count: { id: true }
+            });
+            
+            // 2. Amostragem rigorosa (Take 5)
+            const topProperties = await prisma.property.findMany({
+              where: {
+                isActive: true,
+                lat: { lte: mapBounds.n, gte: mapBounds.s },
+                lng: { lte: mapBounds.e, gte: mapBounds.w },
+              },
+              take: 5,
+              select: { title: true, price: true, city: true, neighborhood: true }
+            });
+            
+            return {
+              totalProperties: stats._count.id,
+              averagePrice: stats._avg.price ? Math.round(stats._avg.price) : 0,
+              topProperties
+            };
+          } catch (e) {
+            return { error: 'Erro ao analisar a região geolocalizada.' };
+          }
+        }
+      }),
+      getPropertyDetails: tool({
+        description: 'Recupera detalhes profundos (FAQ) de um imóvel específico para responder perguntas como "Aceita pet?", "Tem garagem?", "Descrição completa".',
+        parameters: z.object({
+          id: z.string().optional().describe('ID do imóvel. Se omitido, usará o imóvel que o usuário está vendo na tela no momento.')
+        }),
+        // @ts-ignore
+        execute: async ({ id }: { id?: string }) => {
+          // Trava de Segurança do Ponteiro Nulo
+          const targetId = id || propertyId;
+          if (!targetId) {
+            return { error: 'Aviso: O usuário não selecionou nenhum imóvel no momento. Peça para ele clicar em um imóvel no mapa ou na lista antes de perguntar detalhes.' };
+          }
+          
+          const property = await prisma.property.findUnique({
+            where: { id: targetId },
+            select: {
+              title: true, price: true, description: true, petFriendly: true, furnished: true,
+              bathrooms: true, bedrooms: true, area: true, parkingSpots: true, city: true, neighborhood: true
+            }
+          });
+          
+          if (!property) return { error: 'Imóvel não encontrado no banco de dados.' };
+          return property;
+        }
       })
     },
     onFinish: async ({ text, toolCalls }) => {
       // E43: Persistir a resposta final do AI no banco se o usuário estiver logado
       if (userId && text) {
-        await prisma.chatHistory.create({
-          data: {
-            userId,
-            role: 'assistant',
-            content: text,
-          }
-        });
+        try {
+          await prisma.chatHistory.create({
+            data: { userId, role: 'assistant', content: text }
+          });
+        } catch (e: any) {
+          await logToDiscord(e, { source: 'ChatHistory Create', userId });
+        }
       }
+    },
+    onError: ({ error }) => {
+      // Captura quedas durante o Streaming (Timeout, Rate Limit, etc)
+      logToDiscord(error as Error, { source: 'Streaming AI SDK', userId });
     }
   });
+
   return result.toTextStreamResponse();
 }

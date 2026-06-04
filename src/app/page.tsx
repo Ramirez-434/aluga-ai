@@ -40,8 +40,7 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
 export default function Home() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [polygonFilteredIds, setPolygonFilteredIds] = useState<string[] | null>(null);
-  const [mapBounds, setMapBounds] = useState<{ n: number, s: number, e: number, w: number } | null>(null);
-  const { filters, hasActiveFilters, setDrawerOpen, setFilter } = useFilterStore();
+  const { filters, hasActiveFilters, setDrawerOpen, setFilter, mapBounds, setMapBounds } = useFilterStore();
 
   const fetcher = (url: string) => fetch(url).then(res => {
     if (!res.ok) throw new Error('Falha ao carregar imóveis.');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup, useMap, Tooltip, Polygon, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EditControl } from 'react-leaflet-draw';
@@ -152,20 +152,19 @@ function BoundsListener({ onBoundsChange, onMapInteraction }: {
   onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void;
   onMapInteraction?: () => void;
 }) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const map = useMapEvents({
     moveend: () => {
       if (onBoundsChange) {
-        const b = map.getBounds();
-        onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          const b = map.getBounds();
+          onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
+        }, 500);
       }
     },
-    zoomend: () => {
-      if (onBoundsChange) {
-        const b = map.getBounds();
-        onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
-      }
-    },
-    dragend: () => {
+    dragstart: () => {
       if (onMapInteraction) onMapInteraction();
     }
   });
@@ -418,7 +417,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
 
           const universities = MOCK_POIS.filter(p => p.category === 'university');
           for (const uni of universities) {
-            const distKm = distance(point([prop.lng, prop.lat]), point([uni.lng, uni.lat]), { units: 'kilometers' as const });
+            const distKm = distance(point([prop.lng, prop.lat]), point([uni.lng, uni.lat]), 'kilometers');
             if (distKm < minDistance) {
               minDistance = distKm;
               nearestUni = [uni.lat, uni.lng];
