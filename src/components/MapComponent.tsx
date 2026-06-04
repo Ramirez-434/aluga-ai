@@ -418,7 +418,7 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
 
           const universities = MOCK_POIS.filter(p => p.category === 'university');
           for (const uni of universities) {
-            const distKm = distance(point([prop.lng, prop.lat]), point([uni.lng, uni.lat]), { units: 'kilometers' });
+            const distKm = distance(point([prop.lng, prop.lat]), point([uni.lng, uni.lat]), { units: 'kilometers' as const });
             if (distKm < minDistance) {
               minDistance = distKm;
               nearestUni = [uni.lat, uni.lng];
