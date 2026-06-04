@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import NextAuth from "next-auth";
+import { authConfig } from "./auth.config";
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+
+// O NextAuth encapsula o middleware e já chama o callback 'authorized' de authConfig
+const { auth } = NextAuth(authConfig);
 
 // Inicializa o Redis apenas se as variáveis de ambiente estiverem presentes
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -35,10 +38,11 @@ function checkFallbackRateLimit(ip: string): boolean {
   return true;
 }
 
-export async function middleware(request: NextRequest) {
+// O export default auth(...) garante que o NextAuth avalie a sessão e os callbacks
+export default auth(async (request) => {
   const { pathname } = request.nextUrl;
 
-  // G63: Rate limiting na rota /api/chat
+  // Rate limiting na rota /api/chat
   if (pathname.startsWith('/api/chat')) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ?? '127.0.0.1';
     
@@ -55,28 +59,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // I73: Proteger rotas do painel de administração
-  if (pathname.startsWith('/dashboard/admin')) {
-    const token = await getToken({ req: request, secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET });
-
-    if (!token) {
-      const loginUrl = new URL('/auth/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    // Verificar role de admin (se tiver campo role no token)
-    // Por enquanto, qualquer usuário autenticado tem acesso ao admin em desenvolvimento
-    // Em produção, descomente a linha abaixo e adicione role ao seu JWT callback
-    // if (token.role !== 'ADMIN') return NextResponse.redirect(new URL('/', request.url));
-  }
-
+  // A proteção da rota /dashboard/admin já é gerenciada pelo callback "authorized" no auth.config.ts
   return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: [
-    '/dashboard/admin/:path*',
-    '/api/chat',
-  ],
+  // Ignora rotas estáticas e imagens, processando apenas navegações dinâmicas e API
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };
