@@ -42,7 +42,7 @@ export default function Header({ propertiesCount = 0 }: HeaderProps) {
 
   return (
     <header
-      className={`h-16 flex items-center justify-between px-4 sm:px-6 z-10 shrink-0 transition-all duration-300 ${
+      className={`flex items-center justify-between px-4 sm:px-6 z-10 shrink-0 transition-all duration-300 min-h-[4rem] pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2 ${
         scrolled
           ? 'glass border-b border-white/20 dark:border-white/10 shadow-sm'
           : 'bg-white/95 dark:bg-black/95 backdrop-blur-sm border-b border-gray-100 dark:border-white/5'

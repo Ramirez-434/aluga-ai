@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { MessageSquare, X, Send, Sparkles, Building, Bed, Maximize, Trash2, ChevronRight } from 'lucide-react';
+import { MessageSquare, X, Send, Sparkles, Building, Bed, Maximize, Trash2, ChevronRight, Mic, MicOff } from 'lucide-react';
 import { useFilterStore } from '@/store/useFilterStore';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -23,7 +23,9 @@ const SUGGESTION_CHIPS = [
 export default function AIChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [showProactive, setShowProactive] = useState(false); // E48
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
   const { setFilter, resetFilters } = useFilterStore();
   const pathname = usePathname();
 
@@ -38,12 +40,69 @@ export default function AIChatbot() {
     ? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
     : [];
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages, append } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages, append, setInput } = useChat({
     initialMessages: savedMessages,
     body: {
       propertyId // Passa o propertyId no body se houver
     }
   });
+
+  // Inicializa o Reconhecimento de Voz (E98)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = true;
+        recognitionRef.current.lang = 'pt-BR';
+
+        recognitionRef.current.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+          
+          if (finalTranscript) {
+            setInput((prev) => (prev ? prev + ' ' : '') + finalTranscript);
+            setIsListening(false);
+          } else if (interimTranscript) {
+            setInput(interimTranscript);
+          }
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error', event.error);
+          setIsListening(false);
+        };
+
+        recognitionRef.current.onend = () => {
+          setIsListening(false);
+        };
+      }
+    }
+  }, [setInput]);
+
+  const toggleListen = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      if (recognitionRef.current) {
+        setInput(''); // Limpa o input antes de ouvir
+        recognitionRef.current.start();
+        setIsListening(true);
+      } else {
+        alert('Seu navegador não suporta reconhecimento de voz.');
+      }
+    }
+  }, [isListening, setInput]);
 
   // E43: Buscar histórico real do banco se autenticado
   useEffect(() => {
@@ -72,6 +131,23 @@ export default function AIChatbot() {
       }
     }
     localStorage.setItem(LAST_VISIT_KEY, now.toString());
+
+    // Event listener para abrir programaticamente (Ex: Fallback de imóveis inativos)
+    const handleOpenChatbot = (e: Event) => {
+      setIsOpen(true);
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail?.message) {
+        // Envia a mensagem automaticamente após um pequeno delay para a UI abrir
+        setTimeout(() => {
+          append({ role: 'user', content: customEvent.detail.message });
+        }, 500);
+      }
+    };
+    window.addEventListener('open-chatbot', handleOpenChatbot);
+
+    return () => {
+      window.removeEventListener('open-chatbot', handleOpenChatbot);
+    };
   }, []);
 
   // E43: Salvar histórico sempre que mensagens mudam (se anônimo)
@@ -331,16 +407,26 @@ export default function AIChatbot() {
             <input
               value={input}
               onChange={handleInputChange}
-              placeholder="Descreva o imóvel ideal..."
-              className="flex-1 bg-gray-100 dark:bg-white/5 border border-transparent rounded-full pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white dark:focus:bg-white/10 focus:border-indigo-300 dark:focus:border-indigo-700 transition-all dark:text-white text-sm"
+              placeholder={isListening ? "Ouvindo..." : "Descreva o imóvel ideal..."}
+              className={`flex-1 bg-gray-100 dark:bg-white/5 border rounded-full pl-4 pr-20 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:bg-white dark:focus:bg-white/10 transition-all dark:text-white ${isListening ? 'border-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20' : 'border-transparent focus:border-indigo-300 dark:focus:border-indigo-700'}`}
             />
-            <button
-              type="submit"
-              disabled={isLoading || !input?.trim()}
-              className="absolute right-2 w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-full flex items-center justify-center disabled:opacity-40 hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:cursor-not-allowed"
-            >
-              <Send size={13} className="ml-[2px]" />
-            </button>
+            <div className="absolute right-2 flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleListen}
+                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${isListening ? 'bg-red-100 text-red-500 hover:bg-red-200 animate-pulse' : 'text-gray-400 hover:text-indigo-500 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+                title="Ditar por voz"
+              >
+                {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !input?.trim()}
+                className="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-full flex items-center justify-center disabled:opacity-40 hover:shadow-lg hover:shadow-indigo-500/30 transition-all disabled:cursor-not-allowed"
+              >
+                <Send size={13} className="ml-[2px]" />
+              </button>
+            </div>
           </form>
         </div>
       </div>

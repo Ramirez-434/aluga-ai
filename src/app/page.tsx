@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
+import { useFilterStore } from '@/store/useFilterStore';
 import useSWRInfinite from 'swr/infinite';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
@@ -11,9 +12,11 @@ import { PropertyListSkeleton } from '@/components/PropertySkeleton';
 import FilterDrawer from '@/components/FilterDrawer';
 import { FadeInItem } from '@/components/PageTransition';
 import { Property } from '@/types/property';
-import { useFilterStore } from '@/store/useFilterStore';
+import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from 'sonner';
 import CreateRadarButton from '@/components/CreateRadarButton';
+import SplashScreen from '@/components/SplashScreen';
+import EmptyStateRadar from '@/components/EmptyStateRadar';
 
 function isNew(date: Date | string): boolean {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -37,6 +40,7 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
 export default function Home() {
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [polygonFilteredIds, setPolygonFilteredIds] = useState<string[] | null>(null);
+  const [mapBounds, setMapBounds] = useState<{ n: number, s: number, e: number, w: number } | null>(null);
   const [showMobileMap, setShowMobileMap] = useState(false); // H67
   const { filters, hasActiveFilters, setDrawerOpen, setFilter } = useFilterStore();
 
@@ -63,6 +67,8 @@ export default function Home() {
 
   const { data, error, size, setSize, isValidating } = useSWRInfinite(getKey, fetcher, { revalidateOnFocus: false });
 
+  const debouncedMapBounds = useDebounce(mapBounds, 300);
+
   // Buscar os dados ultra-leves globais para o Mapa
   const getMapKey = () => {
     const params = new URLSearchParams();
@@ -72,6 +78,12 @@ export default function Home() {
     if (filters.petFriendly !== null) params.append('petFriendly', filters.petFriendly.toString());
     if (filters.furnished !== null) params.append('furnished', filters.furnished.toString());
     if (filters.city !== null) params.append('city', filters.city);
+    if (debouncedMapBounds) {
+      params.append('n', debouncedMapBounds.n.toString());
+      params.append('s', debouncedMapBounds.s.toString());
+      params.append('e', debouncedMapBounds.e.toString());
+      params.append('w', debouncedMapBounds.w.toString());
+    }
     return `/api/properties/map?${params.toString()}`;
   };
 
@@ -114,6 +126,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[var(--background)]">
+      <SplashScreen />
+
       {/* A9: Header com Glassmorphism e busca funcional */}
       <Header propertiesCount={properties.filter(p => isNew((p as any).createdAt || new Date())).length} />
 
@@ -173,7 +187,7 @@ export default function Home() {
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <div className="text-4xl mb-4">😕</div>
-                <p className="font-semibold text-gray-700 dark:text-gray-200">{error}</p>
+                <p className="font-semibold text-gray-700 dark:text-gray-200">{error?.message || String(error)}</p>
                 <button 
                   onClick={() => window.location.reload()}
                   className="mt-4 px-5 py-2 bg-primary text-white rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors"
@@ -182,11 +196,7 @@ export default function Home() {
                 </button>
               </div>
             ) : propertiesToDisplay.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="text-4xl mb-4">🗺️</div>
-                <p className="font-semibold text-gray-700 dark:text-gray-200">Nenhum imóvel nesta área</p>
-                <p className="text-sm text-gray-500 mt-1">Apague o desenho no mapa e tente outra região.</p>
-              </div>
+              <EmptyStateRadar />
             ) : (
               <>
                 {propertiesToDisplay.map((property, index) => (
@@ -234,6 +244,7 @@ export default function Home() {
             properties={mapPropertiesToDisplay}
             onPropertySelect={setSelectedPropertyId} 
             onPolygonFilter={handlePolygonFilter}
+            onBoundsChange={setMapBounds}
           />
           
           {/* Status pill */}

@@ -1,7 +1,15 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { Redis } from '@upstash/redis';
 
 const prisma = new PrismaClient();
+
+const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,10 +29,21 @@ export async function GET(req: NextRequest) {
     const cursor     = searchParams.get('cursor')      || undefined;
     const limit      = searchParams.get('limit')       ? Number(searchParams.get('limit'))       : 10;
 
+    // Gerar chave de cache baseada nos parâmetros da URL
+    const cacheKey = `properties:feed:${req.nextUrl.search || 'default'}`;
+
+    if (redis) {
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        return NextResponse.json(cachedData);
+      }
+    }
+
     const properties = await prisma.property.findMany({
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       where: {
+        isActive: true,
         ...(minPrice   !== undefined && { price:    { gte: minPrice } }),
         ...(maxPrice   !== undefined && { price:    { lte: maxPrice } }),
         ...(bedrooms   !== undefined && { bedrooms: { gte: bedrooms } }),
@@ -45,7 +64,14 @@ export async function GET(req: NextRequest) {
       nextCursor = nextItem?.id ?? null;
     }
 
-    return NextResponse.json({ properties, nextCursor });
+    const responsePayload = { properties, nextCursor };
+
+    if (redis) {
+      // Salva no cache com expiração de 60 segundos
+      await redis.set(cacheKey, responsePayload, { ex: 60 });
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (error) {
     console.error("Error fetching properties:", error);
     return NextResponse.json({ error: "Failed to fetch properties" }, { status: 500 });

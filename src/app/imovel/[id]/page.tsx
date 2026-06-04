@@ -9,7 +9,10 @@ import AIPropertyAnalysis from "@/components/AIPropertyAnalysis";
 import ShareButton from "@/components/ShareButton";
 import ViewCounter from "@/components/ViewCounter";
 import ImageGalleryCarousel from "@/components/ImageGalleryCarousel";
+import ChatbotTrigger from "@/components/ChatbotTrigger";
+import JsonLd from "@/components/seo/JsonLd";
 import { PrismaClient } from "@prisma/client";
+import type { Metadata } from 'next';
 
 const prisma = new PrismaClient();
 
@@ -17,42 +20,33 @@ const prisma = new PrismaClient();
 export const revalidate = 300;
 
 
-// JSON-LD Schema Markup for Google Rich Snippets
-function PropertyJsonLd({ property }: { property: any }) {
-  const schema = {
-    "@context": "https://schema.org",
-    "@type": "RealEstateListing",
-    name: property.title,
-    description: property.description ?? `Imóvel disponível para locação em ${property.city}.`,
-    url: `https://aluga-ai.com.br/imovel/${property.id}`,
-    image: property.featuredImage ?? "",
-    offers: {
-      "@type": "Offer",
-      price: property.price,
-      priceCurrency: "BRL",
-      availability: "https://schema.org/InStock",
-    },
-    address: {
-      "@type": "PostalAddress",
-      addressLocality: property.city,
-      addressRegion: "TO",
-      addressCountry: "BR",
-      streetAddress: property.address,
-    },
-    floorSize: {
-      "@type": "QuantitativeValue",
-      value: property.area,
-      unitCode: "MTK",
-    },
-    numberOfRooms: property.bedrooms,
-  };
+// OpenGraph dinâmico para compartilhamento no WhatsApp/Facebook
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const property = await prisma.property.findUnique({
+    where: { id },
+    select: { title: true, description: true, featuredImage: true, city: true, price: true }
+  });
 
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
-  );
+  if (!property) return { title: 'Imóvel não encontrado' };
+
+  return {
+    title: `${property.title} | Aluga AI`,
+    description: property.description ?? `Excelente oportunidade de locação em ${property.city} por R$ ${property.price.toLocaleString('pt-BR')}.`,
+    openGraph: {
+      title: property.title,
+      description: property.description ?? `Excelente oportunidade de locação em ${property.city}.`,
+      images: property.featuredImage ? [{ url: property.featuredImage }] : [],
+      url: `https://aluga-ai.com.br/imovel/${id}`,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: property.title,
+      description: property.description ?? `Excelente oportunidade de locação em ${property.city}.`,
+      images: property.featuredImage ? [property.featuredImage] : [],
+    }
+  };
 }
 
 const SPECS = (property: any) => [
@@ -83,7 +77,47 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <PropertyJsonLd property={property} />
+      <JsonLd data={{
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Product",
+            "name": property.title,
+            "image": galleryImages,
+            "description": property.description ?? `Imóvel para locação em ${property.city}`,
+            "offers": {
+              "@type": "Offer",
+              "url": `https://aluga-ai.com.br/imovel/${property.id}`,
+              "priceCurrency": "BRL",
+              "price": property.price,
+              "availability": property.isActive ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+              "itemCondition": "https://schema.org/NewCondition"
+            }
+          },
+          {
+            "@type": "RentAction",
+            "object": {
+              "@type": "RealEstateListing",
+              "name": property.title,
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": property.address,
+                "addressLocality": property.city,
+                "addressRegion": "TO",
+                "addressCountry": "BR"
+              },
+              "numberOfRooms": property.bedrooms,
+              "floorSize": {
+                "@type": "QuantitativeValue",
+                "value": property.area,
+                "unitCode": "MTK"
+              }
+            },
+            "price": property.price,
+            "priceCurrency": "BRL"
+          }
+        ]
+      }} />
       {/* D41: ViewCounter — dispara PATCH silencioso na carga */}
       <ViewCounter propertyId={property.id} />
       <div className="min-h-screen bg-gray-50 dark:bg-[#060810] pb-24">
@@ -112,6 +146,21 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+          {/* Fallback Ativo para Imóvel Alugado */}
+          {!property.isActive && (
+            <div className="mb-8 p-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-2xl flex flex-col sm:flex-row items-center gap-4 text-amber-800 dark:text-amber-300">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center shrink-0">
+                <CheckCircle2 size={24} className="text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <h2 className="text-xl font-black mb-1">Este imóvel já foi alugado!</h2>
+                <p className="text-sm opacity-90">O Aluga AI voa rápido. Mas não se preocupe, nosso Corretor Virtual já está buscando opções similares na região de {property.city} para você.</p>
+              </div>
+              {/* Trigger proativo da IA */}
+              <ChatbotTrigger message={`Vi que a propriedade "${property.title}" em ${property.city} já foi alugada. Pode me mostrar opções parecidas na mesma faixa de preço?`} />
+            </div>
+          )}
 
           {/* Hero Image Gallery (F53) */}
           <ImageGalleryCarousel 
@@ -193,16 +242,26 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             {/* Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-5">
-                <CostCalculator property={property as any} />
-                <WhatsAppButton 
-                  phoneNumber={property.owner?.phone || "556399999999"} 
-                  propertyTitle={property.title}
-                  propertyPrice={property.price}
-                  propertyId={property.id}
-                />
-                <button className="w-full py-4 rounded-2xl border-2 border-primary text-primary font-bold hover:bg-primary/5 transition-colors">
-                  📅 Agendar Visita
-                </button>
+                {property.isActive ? (
+                  <>
+                    <CostCalculator property={property as any} />
+                    <WhatsAppButton 
+                      phoneNumber={property.owner?.phone || "556399999999"} 
+                      propertyTitle={property.title}
+                      propertyPrice={property.price}
+                      propertyId={property.id}
+                    />
+                    <button className="w-full py-4 rounded-2xl border-2 border-primary text-primary font-bold hover:bg-primary/5 transition-colors">
+                      📅 Agendar Visita
+                    </button>
+                  </>
+                ) : (
+                  <div className="bg-gray-50 dark:bg-[#1a1a1a] p-6 rounded-2xl border border-gray-100 dark:border-white/10 text-center">
+                    <CheckCircle2 size={32} className="mx-auto mb-3 text-gray-400" />
+                    <p className="font-bold text-gray-600 dark:text-gray-300">Anúncio Indisponível</p>
+                    <p className="text-sm text-gray-400 mt-1">Este imóvel não está mais aceitando propostas no momento.</p>
+                  </div>
+                )}
                 <div className="flex justify-center pt-4 border-t border-gray-100 dark:border-white/10">
                   <button className="text-xs text-gray-400 hover:text-red-500 transition-colors">
                     Denunciar este anúncio

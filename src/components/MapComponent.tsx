@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup, useMap, Tooltip, Polygon } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, FeatureGroup, useMap, Tooltip, Polygon, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { EditControl } from 'react-leaflet-draw';
 import 'leaflet/dist/leaflet.css';
@@ -133,9 +133,36 @@ interface MapProps {
   properties: Property[];
   onPropertySelect?: (id: string) => void;
   onPolygonFilter?: (propertyIds: string[] | null) => void;
+  onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void;
 }
 
-export default function MapComponent({ properties, onPropertySelect, onPolygonFilter }: MapProps) {
+function BoundsListener({ onBoundsChange }: { onBoundsChange?: (bounds: { n: number, s: number, e: number, w: number }) => void }) {
+  const map = useMapEvents({
+    moveend: () => {
+      if (onBoundsChange) {
+        const b = map.getBounds();
+        onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
+      }
+    },
+    zoomend: () => {
+      if (onBoundsChange) {
+        const b = map.getBounds();
+        onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
+      }
+    }
+  });
+
+  useEffect(() => {
+    if (onBoundsChange) {
+      const b = map.getBounds();
+      onBoundsChange({ n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() });
+    }
+  }, [map, onBoundsChange]);
+
+  return null;
+}
+
+export default function MapComponent({ properties, onPropertySelect, onPolygonFilter, onBoundsChange }: MapProps) {
   const defaultCenter: [number, number] = [-11.726, -49.068]; // Gurupi, TO
 
   const { resolvedTheme } = useTheme();
@@ -209,6 +236,8 @@ export default function MapComponent({ properties, onPropertySelect, onPolygonFi
             : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           }
         />
+        
+        <BoundsListener onBoundsChange={onBoundsChange} />
         
         <LocateControl />
 

@@ -1,6 +1,7 @@
 'use client';
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Mail, Lock } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -33,6 +34,9 @@ const AppleIcon = () => (
 );
 
 export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleSocial = (provider: string) => {
     if (provider === 'Google') {
       signIn('google', { callbackUrl: '/dashboard/tenant' });
@@ -41,6 +45,36 @@ export default function LoginPage() {
     toast.info(`Login com ${provider}`, {
       description: 'Integração OAuth será configurada em produção.'
     });
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Digite o seu email primeiro.");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const res = await signIn("resend", {
+        email,
+        redirect: false,
+        callbackUrl: "/dashboard/tenant"
+      });
+      
+      if (res?.error) {
+        toast.error("Erro ao enviar o Magic Link", { description: res.error });
+      } else {
+        toast.success("Magic Link enviado! 🪄", { 
+          description: "Verifique a sua caixa de entrada para fazer login."
+        });
+        setEmail(""); // Limpa o campo
+      }
+    } catch (error) {
+      toast.error("Erro inesperado.", { description: String(error) });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -73,41 +107,32 @@ export default function LoginPage() {
         <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
       </div>
 
-      <form className="space-y-4">
+      <form className="space-y-4" onSubmit={handleMagicLink}>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:text-white transition-shadow"
+              disabled={isLoading}
+              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:text-white transition-shadow disabled:opacity-50"
             />
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Senha</label>
-            <a href="#" className="text-xs font-semibold text-primary hover:underline">Esqueceu a senha?</a>
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="password"
-              placeholder="••••••••"
-              className="w-full pl-10 pr-4 py-3 bg-white dark:bg-[#111] border border-gray-200 dark:border-white/10 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary dark:text-white transition-shadow"
-            />
-          </div>
-        </div>
+        {/* Campo de Senha REMOVIDO para Passwordless */}
 
-        <Link
-          href="/dashboard/tenant"
-          className="w-full py-3.5 mt-2 bg-primary hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center gap-2 group"
+        <button
+          type="submit"
+          disabled={isLoading || !email}
+          className="w-full py-3.5 mt-2 bg-primary hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Entrar na Conta
-          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-        </Link>
+          {isLoading ? "Enviando link..." : "Receber Link de Acesso"}
+          {!isLoading && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
+        </button>
       </form>
 
       <div className="mt-8 pt-6 border-t border-gray-100 dark:border-white/10 text-center">

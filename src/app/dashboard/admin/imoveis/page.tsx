@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import useSWRInfinite from 'swr/infinite';
-import { Plus, Edit2, Trash2, Search, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Eye, RefreshCw, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -38,6 +38,23 @@ export default function AdminPropertiesManager() {
         mutate(); // Revalida o cache local do SWR
       } else {
         alert('Erro ao excluir imóvel.');
+      }
+    }
+  };
+
+  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+    const newStatus = !currentStatus;
+    const action = newStatus ? 'Reativar anúncio?' : 'Marcar como ALUGADO (ocultar das buscas)?';
+    if (confirm(action)) {
+      const res = await fetch(`/api/properties/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: newStatus })
+      });
+      if (res.ok) {
+        mutate();
+      } else {
+        alert('Erro ao alterar status.');
       }
     }
   };
@@ -133,10 +150,32 @@ export default function AdminPropertiesManager() {
                       <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
                         <Eye size={14} className="text-emerald-500" /> {prop.viewCount} views
                       </div>
+                      <div className="mt-1">
+                        {prop.isActive === false ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            <CheckCircle2 size={10} /> Alugado (Inativo)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                            Ativo
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => handleToggleStatus(prop.id, prop.isActive !== false)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          prop.isActive === false 
+                            ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20' 
+                            : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                        }`}
+                        title={prop.isActive === false ? "Reativar Anúncio" : "Marcar como Alugado"}
+                      >
+                        {prop.isActive === false ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
+                      </button>
                       <Link 
                         href={`/dashboard/admin/imoveis/${prop.id}/editar`}
                         className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"

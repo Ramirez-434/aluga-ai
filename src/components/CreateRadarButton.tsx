@@ -30,6 +30,17 @@ export default function CreateRadarButton() {
     }
   }, [filters, status]);
 
+  // Listener para o trigger global de criar radar (acionado pelo EmptyStateRadar)
+  useEffect(() => {
+    const handleTrigger = () => {
+      if (isVisible && !isSubmitting && statusMsg !== 'success') {
+        handleCreateRadar();
+      }
+    };
+    window.addEventListener('trigger-radar', handleTrigger);
+    return () => window.removeEventListener('trigger-radar', handleTrigger);
+  }, [isVisible, isSubmitting, statusMsg]);
+
   const handleCreateRadar = async () => {
     setIsSubmitting(true);
     try {

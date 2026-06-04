@@ -1,13 +1,17 @@
 import Link from 'next/link';
 import { Building2, MapPin, Eye, Heart, TrendingUp, AlertTriangle, Plus, ArrowRight } from 'lucide-react';
 import { PrismaClient } from '@prisma/client';
+import AdminGlobalChart from '@/components/AdminGlobalChart';
 
 const prisma = new PrismaClient();
 
 // F51: KPIs reais do banco de dados
 async function getStats() {
   try {
-    const [totalProperties, totalViews, newThisWeek] = await Promise.all([
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    fourteenDaysAgo.setHours(0, 0, 0, 0);
+
+    const [totalProperties, totalViews, newThisWeek, rawDailyStats] = await Promise.all([
       prisma.property.count(),
       prisma.property.aggregate({ _sum: { viewCount: true } }),
       prisma.property.count({
@@ -15,20 +19,50 @@ async function getStats() {
           createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
         }
       }),
+      prisma.propertyDailyStat.findMany({
+        where: { date: { gte: fourteenDaysAgo } },
+        orderBy: { date: 'asc' },
+      })
     ]);
+
+    // Aggregate by date (YYYY-MM-DD string as key)
+    const statsMap: Record<string, { views: number, clicks: number }> = {};
+    for (let i = 14; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      statsMap[key] = { views: 0, clicks: 0 };
+    }
+
+    rawDailyStats.forEach(stat => {
+      const d = new Date(stat.date);
+      const key = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (statsMap[key]) {
+        statsMap[key].views += stat.views;
+        statsMap[key].clicks += stat.clicks;
+      }
+    });
+
+    const chartData = Object.entries(statsMap).map(([date, data]) => ({
+      date,
+      views: data.views,
+      clicks: data.clicks,
+    }));
 
     return {
       totalProperties,
       totalViews: totalViews._sum.viewCount ?? 0,
       newThisWeek,
+      chartData,
     };
-  } catch {
-    return { totalProperties: 0, totalViews: 0, newThisWeek: 0 };
+  } catch (error) {
+    console.error(error);
+    return { totalProperties: 0, totalViews: 0, newThisWeek: 0, chartData: [] };
   }
 }
 
 export default async function AdminOverview() {
-  const { totalProperties, totalViews, newThisWeek } = await getStats();
+  const { totalProperties, totalViews, newThisWeek, chartData } = await getStats();
 
   const stats = [
     {
@@ -108,6 +142,27 @@ export default async function AdminOverview() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Global Analytics Funnel */}
+      <div className="bg-white dark:bg-[#111] p-6 rounded-2xl border border-gray-100 dark:border-white/8 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white">Funil de Conversão Global</h2>
+            <p className="text-sm text-gray-500">Visualizações vs Cliques no WhatsApp (Últimos 14 dias)</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+              <span className="text-gray-600 dark:text-gray-300">Views</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+              <span className="text-gray-600 dark:text-gray-300">Leads</span>
+            </div>
+          </div>
+        </div>
+        <AdminGlobalChart data={chartData} />
       </div>
 
       {/* Quick Actions + Alertas */}

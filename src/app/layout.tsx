@@ -7,11 +7,11 @@ import MobileNav from '@/components/MobileNav'
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar'
 import Providers from '@/components/Providers'
 import { Toaster } from 'sonner'
+import JsonLd from '@/components/seo/JsonLd'
 
 export const metadata: Metadata = {
   title: 'Aluga AI — Imóveis em Gurupi e Natividade-TO',
   description: 'O portal definitivo de locação de imóveis com inteligência artificial em Gurupi e Natividade, Tocantins.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -43,7 +43,8 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <meta name="theme-color" content="#3b82f6" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+        <link rel="apple-touch-startup-image" href="/icon-512.png" />
       </head>
       <body>
         <Providers>
@@ -60,6 +61,33 @@ export default function RootLayout({
               style: { borderRadius: '14px', fontSize: '14px' }
             }}
           />
+          <JsonLd data={{
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebSite",
+                "@id": "https://aluga-ai.com.br/#website",
+                "url": "https://aluga-ai.com.br",
+                "name": "Aluga AI",
+                "description": "Plataforma inteligente de locação em Gurupi e Natividade",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://aluga-ai.com.br/?city={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              },
+              {
+                "@type": "RealEstateAgent",
+                "@id": "https://aluga-ai.com.br/#organization",
+                "name": "Aluga AI",
+                "url": "https://aluga-ai.com.br",
+                "logo": "https://aluga-ai.com.br/icon-512.png",
+                "image": "https://aluga-ai.com.br/icon-512.png",
+                "description": "O portal definitivo de locação de imóveis com inteligência artificial no Tocantins.",
+                "areaServed": ["Gurupi", "Natividade", "Tocantins"]
+              }
+            ]
+          }} />
         </Providers>
       </body>
     </html>

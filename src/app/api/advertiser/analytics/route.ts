@@ -16,8 +16,10 @@ export async function GET(req: Request) {
       properties: {
         include: {
           dailyStats: true,
-          favoritedBy: true
-        }
+          favoritedBy: true,
+          images: { take: 1, orderBy: { order: 'asc' } }
+        },
+        orderBy: { createdAt: 'desc' }
       }
     }
   });
@@ -26,7 +28,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Aggregate stats
+  // Aggregate global stats
   let totalViews = 0;
   let totalClicks = 0;
   let totalFavorites = 0;
@@ -40,22 +42,49 @@ export async function GET(req: Request) {
     last30DaysStats[dateStr] = { views: 0, clicks: 0 };
   }
 
-  user.properties.forEach(property => {
-    totalViews += property.viewCount; // fallback global
-    totalFavorites += property.favoritedBy.length;
-    
+  // Per-property stats
+  const propertiesStats = user.properties.map(property => {
+    let propViews = property.viewCount;
+    let propClicks = 0;
+    const propFavorites = property.favoritedBy.length;
+
     property.dailyStats.forEach(stat => {
+      propClicks += stat.clicks;
       totalClicks += stat.clicks;
-      
+
       const statDate = new Date(stat.date).toISOString().split('T')[0];
       if (last30DaysStats[statDate] !== undefined) {
         last30DaysStats[statDate].views += stat.views;
         last30DaysStats[statDate].clicks += stat.clicks;
       }
     });
+
+    totalViews += propViews;
+    totalFavorites += propFavorites;
+
+    const ctr = propViews > 0 ? parseFloat(((propClicks / propViews) * 100).toFixed(1)) : 0;
+    // Health score: weighted composite metric (0-100)
+    const score = Math.min(100, propViews * 0.3 + propClicks * 5 + propFavorites * 8);
+
+    return {
+      id: property.id,
+      title: property.title,
+      price: property.price,
+      city: property.city,
+      isPremium: property.isPremium,
+      featuredImage: property.images[0]?.url ?? property.featuredImage,
+      views: propViews,
+      clicks: propClicks,
+      favorites: propFavorites,
+      ctr,
+      score: Math.round(score),
+    };
   });
 
-  // Convert map to array for Recharts
+  // Sort by score desc for ranking
+  propertiesStats.sort((a, b) => b.score - a.score);
+
+  // Convert map to array for Recharts Area Chart
   const chartData = Object.entries(last30DaysStats).map(([date, data]) => {
     const [, month, day] = date.split('-');
     return {
@@ -65,11 +94,21 @@ export async function GET(req: Request) {
     };
   });
 
+  // Bar chart data: per-property comparison (top 5)
+  const barChartData = propertiesStats.slice(0, 5).map(p => ({
+    name: p.title.length > 18 ? p.title.substring(0, 18) + '\u2026' : p.title,
+    views: p.views,
+    clicks: p.clicks,
+    favoritos: p.favorites,
+  }));
+
   return NextResponse.json({
     totalProperties: user.properties.length,
     totalViews,
     totalClicks,
     totalFavorites,
-    chartData
+    chartData,
+    barChartData,
+    propertiesStats,
   });
 }
