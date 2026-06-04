@@ -141,7 +141,6 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
         },
       }),
     },
-    maxSteps: 5,
     onFinish: async ({ text, toolCalls }) => {
       // E43: Persistir a resposta final do AI no banco se o usuário estiver logado
       if (userId && text) {
@@ -155,6 +154,5 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
       }
     }
   });
-
-  return result.toDataStreamResponse();
+  return result.toTextStreamResponse();
 }

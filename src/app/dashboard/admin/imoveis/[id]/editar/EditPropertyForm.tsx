@@ -62,7 +62,7 @@ export default function EditPropertyForm({ property }: { property: any }) {
           url,
           file: selectedFile,
           compressedFile,
-          compressInfo,
+          compressInfo: compressInfo ?? undefined,
           isExisting: false
         });
       }

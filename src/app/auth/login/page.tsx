@@ -1,7 +1,7 @@
 'use client';
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Mail, Loader2 } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -130,8 +130,17 @@ export default function LoginPage() {
           disabled={isLoading || !email}
           className="w-full py-3.5 mt-2 bg-primary hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? "Enviando link..." : "Receber Link de Acesso"}
-          {!isLoading && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Preparando Acesso...
+            </>
+          ) : (
+            <>
+              Receber Link de Acesso
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
         </button>
       </form>
 

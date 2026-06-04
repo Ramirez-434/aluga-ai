@@ -40,12 +40,24 @@ export default function AIChatbot() {
     ? JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
     : [];
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error, setMessages, append, setInput } = useChat({
-    initialMessages: savedMessages,
-    body: {
-      propertyId // Passa o propertyId no body se houver
-    }
+  const [input, setInput] = useState('');
+  
+  const { messages, sendMessage, error, setMessages, status: chatStatus } = useChat({
+    messages: savedMessages
   });
+
+  const isLoading = chatStatus === 'streaming' || chatStatus === 'submitted';
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+    sendMessage({ text: input }, { body: { propertyId } });
+    setInput('');
+  };
 
   // Inicializa o Reconhecimento de Voz (E98)
   useEffect(() => {
@@ -139,7 +151,7 @@ export default function AIChatbot() {
       if (customEvent.detail?.message) {
         // Envia a mensagem automaticamente após um pequeno delay para a UI abrir
         setTimeout(() => {
-          append({ role: 'user', content: customEvent.detail.message });
+          sendMessage({ text: customEvent.detail.message }, { body: { propertyId } });
         }, 500);
       }
     };
@@ -161,18 +173,22 @@ export default function AIChatbot() {
     // Scroll automático
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
-    // Sincronizar intenção da IA com o Mapa (Zustand)
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'assistant' && lastMessage.toolInvocations) {
-      const searchCall = lastMessage.toolInvocations.find(t => t.toolName === 'searchProperties' && t.state === 'call');
-      if (searchCall) {
-        const args = searchCall.args as any;
-        resetFilters();
-        if (args.city)        setFilter('city', args.city);
-        if (args.minBedrooms) setFilter('minBedrooms', args.minBedrooms);
-        if (args.maxPrice)    setFilter('maxPrice', args.maxPrice);
-        if (args.petFriendly !== undefined) setFilter('petFriendly', args.petFriendly);
-        if (args.furnished !== undefined)   setFilter('furnished', args.furnished);
+    // E95: Sincronização do estado da IA com o Mapa (Zustand)
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.parts) {
+        const searchCall: any = lastMessage.parts.find(p => 
+          (p.type === 'tool-searchProperties' || (p as any).toolName === 'searchProperties')
+        );
+        if (searchCall && (searchCall.state === 'call' || searchCall.state === 'result' || searchCall.state === 'input-available' || searchCall.state === 'output-available')) {
+          const args = searchCall.input || searchCall.args || {};
+          resetFilters();
+          if (args.city)        setFilter('city', args.city);
+          if (args.minBedrooms) setFilter('minBedrooms', args.minBedrooms);
+          if (args.maxPrice)    setFilter('maxPrice', args.maxPrice);
+          if (args.petFriendly !== undefined) setFilter('petFriendly', args.petFriendly);
+          if (args.furnished !== undefined)   setFilter('furnished', args.furnished);
+        }
       }
     }
   }, [messages, setFilter, resetFilters]);
@@ -187,20 +203,25 @@ export default function AIChatbot() {
 
   // E44: Enviar sugestão ao clicar no chip
   const handleChipClick = (chip: string) => {
-    append({ role: 'user', content: chip });
+    sendMessage({ text: chip }, { body: { propertyId } });
   };
 
   const renderToolInvocation = (toolInvocation: any) => {
-    if (toolInvocation.toolName === 'searchProperties') {
-      if (toolInvocation.state === 'call') {
+    const toolName = toolInvocation.toolName || (toolInvocation.type?.startsWith('tool-') ? toolInvocation.type.replace('tool-', '') : '');
+    
+    if (toolName === 'searchProperties') {
+      if (toolInvocation.state === 'call' || toolInvocation.state === 'input-streaming' || toolInvocation.state === 'input-available') {
         return (
           <div key={toolInvocation.toolCallId} className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 p-3 rounded-xl text-sm flex items-center gap-2 animate-pulse mt-2">
             <Sparkles size={15} /> Buscando imóveis perfeitos...
           </div>
         );
       }
-      if (toolInvocation.state === 'result') {
-        const { resultsCount, properties } = toolInvocation.result;
+      if (toolInvocation.state === 'result' || toolInvocation.state === 'output-available') {
+        const payload = toolInvocation.output || toolInvocation.result;
+        if (!payload) return null;
+        
+        const { resultsCount, properties } = payload;
         if (resultsCount === 0) {
           return (
             <div key={toolInvocation.toolCallId} className="bg-gray-100 dark:bg-white/5 p-3 rounded-xl text-sm text-gray-500 dark:text-gray-400 mt-2">
@@ -341,7 +362,7 @@ export default function AIChatbot() {
                 ].map(sug => (
                   <button
                     key={sug}
-                    onClick={() => append({ role: 'user', content: sug })}
+                    onClick={() => sendMessage({ text: sug }, { body: { propertyId } })}
                     className="text-xs text-left bg-white dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-white/10 hover:border-indigo-400 dark:hover:border-indigo-600 hover:text-indigo-600 dark:hover:text-indigo-400 text-gray-600 dark:text-gray-300 transition-all"
                   >
                     {sug}
@@ -358,22 +379,26 @@ export default function AIChatbot() {
             </div>
           )}
 
-          {messages.map(m => (
-            <div key={m.id} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-              {m.content && (
-                <div className={`max-w-[86%] p-3 text-sm shadow-sm ${
-                  m.role === 'user'
-                    ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-2xl rounded-br-sm'
-                    : 'bg-white dark:bg-[#222] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-sm leading-relaxed'
-                }`}>
-                  {m.content}
-                </div>
-              )}
-              {m.toolInvocations?.map(toolInvocation => renderToolInvocation(toolInvocation))}
-            </div>
-          ))}
+          {messages.map(m => {
+            const textContent = m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || '';
+
+            return (
+              <div key={m.id} className={`flex flex-col gap-2 ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                {textContent && (
+                  <div className={`max-w-[86%] p-3 text-sm shadow-sm ${
+                    m.role === 'user'
+                      ? 'bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-2xl rounded-br-sm'
+                      : 'bg-white dark:bg-[#222] border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-sm leading-relaxed'
+                  }`}>
+                    {textContent}
+                  </div>
+                )}
+                {m.parts?.filter(p => p.type?.startsWith('tool-') || p.type === 'dynamic-tool' || (p as any).toolCallId).map(toolInvocation => renderToolInvocation(toolInvocation))}
+              </div>
+            );
+          })}
           
-          {isLoading && !messages[messages.length - 1]?.toolInvocations && (
+          {isLoading && !messages[messages.length - 1]?.parts?.some(p => p.type?.startsWith('tool-') || p.type === 'dynamic-tool' || (p as any).toolCallId) && (
             <div className="flex items-start">
               <div className="bg-white dark:bg-[#222] border border-gray-200 dark:border-white/10 p-3.5 rounded-2xl rounded-bl-sm flex gap-1 shadow-sm">
                 <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
