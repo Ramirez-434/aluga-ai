@@ -74,7 +74,7 @@ Após a ferramenta retornar resultados, NÃO liste ou repita os detalhes do imó
 O usuário está visualizando a página do imóvel "${property.title}" (R$ ${property.price}, ${property.bedrooms} quartos). As imagens deste imóvel foram anexadas à visão do sistema.
 Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conservação, iluminação, qualidade dos pisos (ex: porcelanato, cerâmica), bancadas (ex: granito, mármore) e armários, baseando-se ESTRITAMENTE no que as imagens mostram. NÃO minta e NÃO invente características que você não possa ver claramente. Se não tiver certeza, diga que pelas fotos não é possível afirmar.`;
 
-      const lastUserMessageIndex = finalMessages.map(m => m.role).lastIndexOf('user');
+      const lastUserMessageIndex = finalMessages.map((m: any) => m.role).lastIndexOf('user');
       if (lastUserMessageIndex !== -1 && imagesToProcess.length > 0) {
         const lastMsg = finalMessages[lastUserMessageIndex];
         
@@ -161,7 +161,7 @@ Aja como os 'olhos' do usuário e avalie com extrema precisão o estado de conse
           campusName: z.enum(['Campus UnirG', 'Campus UFT - Gurupi', 'Polo UNITINS']).describe('Nome exato do campus'),
           maxDistanceKm: z.number().optional().default(3).describe('Raio máximo de distância em km'),
         }),
-        execute: async ({ campusName, maxDistanceKm }) => {
+        execute: async ({ campusName, maxDistanceKm }: { campusName: string; maxDistanceKm: number }) => {
           const campus = MOCK_POIS.find(p => p.name === campusName);
           if (!campus) return { error: 'Campus não encontrado' };
           
