@@ -11,7 +11,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 // DYNAMIC IMPORT para os gráficos pesados
-const AnalyticsChart = dynamic(() => import('@/components/AnalyticsChart'), {
+const ViewsChart = dynamic(() => import('@/components/charts/ViewsChart').then(mod => mod.ViewsChart), {
   ssr: false,
   loading: () => <div className="w-full h-full flex items-center justify-center"><Loader2 className="animate-spin text-indigo-500" /></div>
 });
@@ -209,7 +209,7 @@ export default function AdvertiserDashboard() {
               </div>
             </div>
             <div className="w-full h-[280px]">
-              <AnalyticsChart data={data.chartData} />
+              <ViewsChart data={data.chartData} />
             </div>
           </div>
 

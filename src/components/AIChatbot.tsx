@@ -389,8 +389,8 @@ export default function AIChatbot() {
 
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-xl text-xs border border-red-200 dark:border-red-900/50">
-              <p className="font-bold mb-1">⚠️ Chave de API não configurada</p>
-              <p className="opacity-80">Adicione <code className="bg-red-100 dark:bg-red-900/30 px-1 rounded">GOOGLE_GENERATIVE_AI_API_KEY</code> no seu <code>.env</code>.</p>
+              <p className="font-bold mb-1">⚠️ Erro de conexão com o Assistente</p>
+              <p className="opacity-80">{error.message || 'Ocorreu um erro inesperado ao se comunicar com o servidor.'}</p>
             </div>
           )}
 

@@ -53,6 +53,8 @@ model User {
   chatHistory   ChatHistory[]
   savedSearches SavedSearch[]
   broker        Broker?
+  tickets       MaintenanceTicket[]
+  furniture     FurnitureItem[]
 }
 
 model Account {
@@ -177,6 +179,7 @@ model Property {
   favoritedBy       Favorite[]
   dailyStats        PropertyDailyStat[]
   waitlist          WaitlistLead[]
+  tickets           MaintenanceTicket[]
 }
 
 // O Sistema de Acessibilidade e Condomínio (Tabelas Auxiliares)
@@ -297,4 +300,52 @@ model WaitlistLead {
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
   @@unique([email, propertyId])
+}
+
+// ============================================================================
+// BATALHÃO 5: ECOSSISTEMA DE RETENÇÃO (Walled Garden)
+// ============================================================================
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model MaintenanceTicket {
+  id          String   @id @default(uuid())
+  tenantId    String
+  propertyId  String
+  category    String   // Ex: "Hidráulica", "Elétrica", "Estrutural"
+  description String   @db.Text
+  status      MaintenanceStatus @default(OPEN)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      User     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Auditoria 2: Impede que o mesmo inquilino abra vários chamados ABERTOS para a mesma categoria no mesmo imóvel
+  // Prisma não suporta partial unique nativamente em todos os bancos, então vamos controlar isso no Route Handler também.
+}
+
+enum FurnitureItemStatus {
+  AVAILABLE
+  SOLD
+  DONATED
+  DELETED
+}
+
+model FurnitureItem {
+  id          String   @id @default(uuid())
+  sellerId    String
+  title       String
+  description String   @db.Text
+  price       Float    @default(0) // 0 significa doação
+  imageUrl    String?
+  status      FurnitureItemStatus @default(AVAILABLE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 }

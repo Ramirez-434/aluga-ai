@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/utils/prisma";
 import { z } from "zod";
 import { revalidateTag } from "next/cache";
+import { waitUntil } from "@vercel/functions";
 
 const propertySchema = z.object({
   title: z.string().min(5, "Título muito curto").max(100, "Título muito longo").optional(),
@@ -110,8 +111,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           }
         };
 
-        // Chama sem await para não travar a resposta HTTP
-        dispatchEmails();
+        // Chama usando a API nativa da Vercel para não travar a resposta HTTP
+        waitUntil(dispatchEmails());
       }
     }
 

@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, PanInfo } from "framer-motion";
+import { FormEvent } from "react";
 
 interface PropertyCardProps {
   property: Property;
@@ -113,10 +114,54 @@ export default function PropertyCard({ property, onClick, avgPrice }: PropertyCa
         
         {/* CRM: Overlay de Indisponível (RENTED / SOLD) */}
         {(property as any).status === 'RENTED' && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px]">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 backdrop-blur-[2px] pointer-events-auto">
             <div className="bg-red-600 text-white font-black px-4 py-1.5 rounded-full uppercase tracking-widest text-sm shadow-xl shadow-red-500/20 mb-2 border border-red-500/50">
               ALUGADO
             </div>
+            <button 
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); (document.getElementById(`waitlist-modal-${property.id}`) as HTMLDialogElement)?.showModal(); }}
+              className="px-4 py-1.5 bg-white text-gray-900 rounded-full text-xs font-bold hover:bg-gray-200 transition-colors"
+            >
+              Fila de Espera
+            </button>
+            
+            <dialog id={`waitlist-modal-${property.id}`} className="bg-transparent p-0 m-auto backdrop:bg-black/80 backdrop:backdrop-blur-sm open:animate-in open:fade-in open:zoom-in-95">
+              <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-3xl shadow-2xl w-[90vw] max-w-sm border border-gray-200 dark:border-white/10" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-black text-gray-900 dark:text-white mb-1">Entrar na Fila Vip</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Te avisaremos assim que este imóvel vagar.</p>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.target as HTMLFormElement;
+                  const data = new FormData(form);
+                  try {
+                    const res = await fetch(`/api/properties/${property.id}/waitlist`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(Object.fromEntries(data.entries()))
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || 'Erro na fila');
+                    toast.success(json.message || 'Você está na Fila Vip!');
+                    (document.getElementById(`waitlist-modal-${property.id}`) as HTMLDialogElement)?.close();
+                    form.reset();
+                  } catch (err: any) {
+                    toast.error(err.message);
+                  }
+                }} className="flex flex-col gap-3">
+                  <input required name="name" placeholder="Seu nome" className="bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+                  <input required type="email" name="email" placeholder="Seu e-mail" className="bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+                  <input name="phone" placeholder="WhatsApp (opcional)" className="bg-gray-50 dark:bg-black/50 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500" />
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" onClick={() => (document.getElementById(`waitlist-modal-${property.id}`) as HTMLDialogElement)?.close()} className="flex-1 py-2 rounded-xl text-sm font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+                      Cancelar
+                    </button>
+                    <button type="submit" className="flex-1 py-2 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/30">
+                      Entrar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </dialog>
           </div>
         )}
         

@@ -30,13 +30,17 @@ export async function POST(req: NextRequest) {
         contentToSave = lastUserMessage.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('');
       }
 
-      await prisma.chatHistory.create({
-        data: {
-          userId,
-          role: 'user',
-          content: contentToSave,
-        }
-      });
+      try {
+        await prisma.chatHistory.create({
+          data: {
+            userId,
+            role: 'user',
+            content: contentToSave,
+          }
+        });
+      } catch (e) {
+        console.error('Erro ao salvar histórico do chat (usuário pode não existir mais):', e);
+      }
     }
   }
 

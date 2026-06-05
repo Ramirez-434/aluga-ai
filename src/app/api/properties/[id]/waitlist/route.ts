@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/utils/prisma';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
 
 const WaitlistSchema = z.object({
   name: z.string().min(2, "Nome é obrigatório"),
@@ -48,7 +46,7 @@ export async function POST(
       return NextResponse.json({ error: error.issues[0].message }, { status: 400 });
     }
     if ((error as any).code === 'P2002') {
-      return NextResponse.json({ error: "Você já está na nossa lista VIP!" }, { status: 409 });
+      return NextResponse.json({ success: true, message: "Você já está na nossa lista VIP!" }, { status: 200 });
     }
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
   }
